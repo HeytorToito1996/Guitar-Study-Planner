@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guitar Study Router</title>
+  <style>
+    /* ── Design tokens ──────────────────────────────────────────────────────
+       Cada token declara o valor claro e o escuro via light-dark().
+       Qual tema vale depende de color-scheme:
+         • sem data-theme  → segue a preferência do sistema (evita "flash" na abertura)
+         • data-theme      → forcedo pelo botão / preferência salva
+    */
+    :root {
+      color-scheme: light dark;
+
+      /* Superfícies */
+      --bg-primary:    light-dark(#f2f5fb, #1a1a2e);
+      --bg-secondary:  light-dark(#ffffff, #16213e);
+      --bg-tertiary:   light-dark(#e9eef9, #0f3460);
+      --focus-bg:      light-dark(#eef1f8, #0d0d1a);
+      --rest-bg:       light-dark(#e4edff, #1a2744);
+
+      /* Texto */
+      --text-primary:   light-dark(#16192b, #eeeeee);
+      --text-secondary: light-dark(#5b6480, #a0a0b0);
+      --timer-text:     light-dark(#16192b, #ffffff);
+
+      /* Marca */
+      --accent:        light-dark(#d92d4a, #e94560);
+      --accent-hover:  light-dark(#b81f3c, #ff6b81);
+      --on-accent:     #ffffff;
+
+      /* Apoio */
+      --border:   light-dark(#d5dcec, #2a2a4a);
+      --success:  light-dark(#14873f, #2ecc71);
+      --warning:  light-dark(#b45309, #f39c12);
+
+      /* Camadas flutuantes */
+      --overlay:   light-dark(rgba(23, 28, 45, 0.45), rgba(0, 0, 0, 0.7));
+      --panel-bg:  light-dark(rgba(255, 255, 255, 0.95), rgba(22, 33, 62, 0.9));
+      --topbar-bg: light-dark(rgba(255, 255, 255, 0.85), rgba(0, 0, 0, 0.4));
+      --shadow:    light-dark(0 8px 24px rgba(23, 28, 45, 0.12), 0 8px 24px rgba(0, 0, 0, 0.35));
+
+      --font-mono: 'Courier New', 'Consolas', monospace;
+    }
+
+    :root[data-theme="light"] { color-scheme: light; }
+    :root[data-theme="dark"]  { color-scheme: dark; }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg-primary); color: var(--text-primary); font-family: system-ui, -apple-system, sans-serif; overflow: hidden; height: 100vh; }
+
+    /* Transições suaves ao alternar o tema */
+    body, .sidebar, .content-header, #alphaTabArea, #atControls, #metronomePanel,
+    #focusView, #focusTopBar, .modal-content, .form-group input, .form-group select,
+    .form-group textarea, #atControls input[type="number"], #atControls select,
+    #metronomePanel select, #audioArea, #audioControls {
+      transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+    }
+
+    /* Layout Structure */
+    .app-container { display: flex; height: 100vh; width: 100vw; }
+
+    /* Sidebar */
+    .sidebar { width: 220px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; }
+    .sidebar-header { padding: 20px; font-size: 18px; font-weight: bold; border-bottom: 1px solid var(--border); text-align: center; }
+    .days-container { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 10px 0; }
+    .day-btn { padding: 12px 20px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; font-size: 15px; border-left: 3px solid transparent; transition: all 0.2s; }
+    .day-btn:hover { background: var(--bg-tertiary); }
+    .day-btn.active { border-left-color: var(--accent); background: var(--bg-tertiary); color: var(--accent); font-weight: 600; }
+    .sidebar-footer { padding: 20px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border); }
+
+    /* Main Content Area */
+    .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .content-header { padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    .content-header h1 { font-size: 24px; font-weight: 600; }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+    .block-list-container { flex: 1; overflow-y: auto; padding: 20px 30px; }
+
+    /* Block cards */
+    .block-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; transition: all 0.2s; }
+    .block-card:hover { border-color: var(--accent); }
+    .block-card.dragging { opacity: 0.5; }
+    .block-header { display: flex; align-items: center; gap: 12px; }
+    .block-drag-handle { cursor: grab; color: var(--text-secondary); font-size: 18px; }
+    .block-topic-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .block-duration, .block-rest { font-size: 13px; color: var(--text-secondary); }
+    .block-actions { margin-left: auto; display: flex; gap: 6px; }
+    
+    /* Topic colors */
+    .badge-aquecimento { background: #e67e22; color: var(--on-accent); }
+    .badge-tecnica { background: #3498db; color: var(--on-accent); }
+    .badge-improvisacao { background: #9b59b6; color: var(--on-accent); }
+    .badge-harmonia { background: var(--success); color: var(--on-accent); }
+    .badge-repertorio { background: var(--accent); color: var(--on-accent); }
+
+    /* Timer */
+    #timerDisplay { font-family: var(--font-mono); font-size: 8rem; font-weight: 700; letter-spacing: 4px; color: var(--timer-text); transition: opacity 0.2s; }
+    #timerArea.paused #timerDisplay { opacity: 0.55; }
+    #timerLabel { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; margin-top: 10px; color: var(--text-secondary); }
+    #btnTimerPause { margin-top: 16px; min-width: 140px; }
+    #timerArea { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; transition: background-color 0.4s ease, color 0.25s ease; }
+    #timerArea.rest-mode { background: var(--rest-bg); }
+
+    /* Metronome beat dots */
+    .beat-indicators-container { display: flex; gap: 10px; margin-top: 15px; justify-content: center; }
+    .beat-dot { width: 20px; height: 20px; border-radius: 50%; background: var(--border); transition: all 0.1s; }
+    .beat-dot.pulse { background: var(--accent); transform: scale(1.3); box-shadow: 0 0 12px var(--accent); }
+    .beat-dot.accent.pulse { background: var(--success); box-shadow: 0 0 12px var(--success); }
+    .metronome-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+    .metronome-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+    /* Buttons */
+    .btn-primary { background: var(--accent); color: var(--on-accent); border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background 0.2s; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .btn-secondary:hover { background: var(--bg-primary); border-color: var(--text-secondary); }
+    .btn-icon { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 4px; }
+    .btn-icon:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+    /* Theme toggle */
+    .theme-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+
+    /* Modal overlay */
+    .modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 28px; min-width: 420px; max-width: 520px; box-shadow: var(--shadow); }
+    .modal-content h2 { margin-bottom: 20px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+    /* Form fields */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 10px 12px; background: var(--bg-primary); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text-primary); font-size: 14px; outline: none;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+    .form-row { display: flex; gap: 16px; }
+    .form-row .form-group { flex: 1; }
+    .input-group { display: flex; gap: 10px; }
+    .input-group input { flex: 1; }
+
+    /* Hidden utility */
+    .hidden { display: none !important; }
+
+    /* Focus view */
+    #focusView { position: fixed; inset: 0; background: var(--focus-bg); color: var(--text-primary); z-index: 900; display: flex; flex-direction: column; }
+    #focusTopBar { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: var(--topbar-bg); color: var(--text-primary); }
+    .topbar-right { display: flex; align-items: center; gap: 14px; }
+
+    /* Metronome panel — recolhível e arrastável */
+    #metronomePanel { position: fixed; left: 20px; top: 20px; width: 280px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; z-index: 950; box-shadow: var(--shadow); overflow: hidden; }
+    #metronomePanel.dragging { user-select: none; }
+    #metronomePanelHeader { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+    .metronome-handle { cursor: grab; color: var(--text-secondary); font-size: 16px; line-height: 1; padding: 4px 6px; border-radius: 4px; touch-action: none; user-select: none; }
+    .metronome-handle:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .metronome-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    #metronomePanel.dragging .metronome-handle { cursor: grabbing; }
+    .metronome-title { flex: 1; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    #btnMetronomeToggle { background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-primary); border-radius: 4px; padding: 3px 10px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    #btnMetronomeToggle:hover { border-color: var(--accent); color: var(--accent); }
+    #btnMetronomeToggle.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+    #btnMetronomeToggle.active:hover { background: var(--accent-hover); color: var(--on-accent); border-color: var(--accent-hover); }
+    #btnMetronomeCollapse { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; border-radius: 4px; font-size: 10px; padding: 4px 7px; line-height: 1; }
+    #btnMetronomeCollapse:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    #metronomeBody { padding: 4px 12px 12px 12px; }
+    #metronomePanel.collapsed #metronomeBody { display: none; }
+    #metronomePanel select { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary); padding: 6px 8px; font-size: 14px; outline: none; }
+    #metronomePanel input[type="range"] { accent-color: var(--accent); }
+
+    /* AlphaTab area */
+    #alphaTabArea { background: var(--bg-secondary); border-top: 1px solid var(--border); max-height: 48vh; overflow-y: auto; display: flex; flex-direction: column; }
+    /* Visão de áudio aberta num bloco que também tem tab: a área sai do fluxo em
+       vez de sumir. `display: none` zeraria a largura do container no instante em
+       que o alphaTab monta a partitura, e ela nunca mais apareceria. */
+    #alphaTabArea.concealed { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; z-index: -1; }
+    #alphaTabContainer { width: 100%; min-height: 200px; flex: 1; }
+    #atControls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 10px;
+      padding: 10px 16px;
+      background: #eef1f6;
+      border-bottom: 1px solid #d5dcec;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .at-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      background: #ffffff;
+      border: 1px solid #d5dcec;
+      border-radius: 8px;
+      padding: 8px 12px;
+      box-shadow: 0 1px 2px rgba(22, 25, 43, 0.04);
+    }
+    .at-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #5b6480;
+    }
+    .at-card-body {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .at-btn-play {
+      background: #d92d4a;
+      color: #ffffff;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .at-btn-play:hover { background: #b81f3c; }
+    .at-btn-play.playing { background: #14873f; }
+    .at-btn {
+      background: #f2f5fb;
+      color: #16192b;
+      border: 1px solid #d5dcec;
+      padding: 7px 11px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .at-btn:hover { border-color: #5b6480; background: #e6ebf5; }
+    .at-btn.active {
+      background: #d92d4a;
+      color: #ffffff;
+      border-color: #d92d4a;
+    }
+    .at-segmented {
+      display: inline-flex;
+      background: #f2f5fb;
+      border: 1px solid #d5dcec;
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .at-seg-btn {
+      background: transparent;
+      border: none;
+      color: #5b6480;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .at-seg-btn:hover { color: #16192b; }
+    .at-seg-btn.active {
+      background: #d92d4a;
+      color: #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+    .at-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f5f7fb;
+      border: 1px solid #d5dcec;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 12px;
+      color: #5b6480;
+    }
+    .at-field:focus-within {
+      border-color: #d92d4a;
+      background: #ffffff;
+    }
+    .at-field input[type="number"] {
+      width: 56px;
+      padding: 3px 4px;
+      border: none !important;
+      background: transparent !important;
+      color: #16192b !important;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      outline: none;
+    }
+    .at-field span {
+      font-weight: 600;
+      color: #5b6480;
+      user-select: none;
+    }
+    .at-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(217, 45, 74, 0.1);
+      color: #d92d4a;
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    #atControls .hint { color: #5b6480; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #atControls .hint.error { color: #b45309; font-weight: 600; }
+
+    /* Player de áudio (técnica e repertório) */
+    #audioArea { background: var(--bg-secondary); border-top: 1px solid var(--border); display: flex; flex-direction: column; max-height: 48vh; overflow-y: auto; }
+    #audioControls { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 16px; background: var(--bg-tertiary); }
+    #audioControls input[type="number"] { width: 88px; padding: 6px 8px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary); }
+    #audioControls input[type="range"] { accent-color: var(--accent); }
+    #audioTranspose, #audioTempo { width: 118px; }
+    #audioVolume { width: 82px; }
+    #audioControls .readout { font-weight: 700; color: var(--accent); margin-left: 6px; white-space: nowrap; min-width: 74px; }
+    #audioControls .hint { color: var(--text-secondary); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #audioControls .hint.error { color: var(--warning); font-weight: 600; }
+    #btnAudioLoop.on { background: var(--accent); color: var(--bg-primary); border-color: var(--accent); }
+
+    /* A altura acompanha a janela: numa tela baixa a forma de onda encolhe em vez de
+       ser cortada pelo max-height do painel. */
+    #audioWaveWrap { position: relative; flex: 1 0 auto; padding: 8px 16px 12px; }
+    #audioWave { display: block; width: 100%; height: clamp(52px, 15vh, 132px); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; cursor: crosshair; touch-action: none; }
+    #audioLoadInfo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; font-size: 13px; color: var(--text-secondary); }
+    #audioLoadInfo.hidden { display: none; }
+    #audioLoadInfo.error { color: var(--warning); font-weight: 600; }
+    .control-group { display: flex; align-items: center; gap: 8px; border-left: 1px solid var(--border); padding-left: 10px; margin-left: 5px; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+    
+    .block-notes-area { padding: 12px 12px 12px 42px; border-top: 1px dashed var(--border); margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
+    .block-subtopic { font-size: 13px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 32ch; }
+
+    /* ── Tablatura: sempre clara, independente do tema ────────────────────────
+       O alphaTab desenha notação escura (mainGlyphColor rgb(0,0,0),
+       staffLineColor rgb(165,165,165)) em canvas transparente, contando com o
+       fundo claro do container. No tema escuro o container era #16213e e a
+       partitura sumia. Aqui os tokens do app são redefinidos para os valores
+       claros dentro desta área: light-dark() e :root[data-theme] não alcançam
+       estas declarações. */
+    #alphaTabArea {
+      color-scheme: light;
+      --bg-primary: #f5f5f5;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #eef1f5;
+      --text-primary: #16192b;
+      --text-secondary: #5b6480;
+      --border: #d5dcec;
+      --accent: #d92d4a;
+      --accent-hover: #b81f3c;
+      --success: #14873f;
+      --warning: #b45309;
+      background: #ffffff;
+      color: #16192b;
+    }
+    /* Camadas internas do alphaTab (surface, canvas de fundo e de cursor). */
+    #alphaTabArea .at-surface, #alphaTabArea canvas { background: #ffffff; }
+    #alphaTabArea input, #alphaTabArea select { background: #f5f5f5; color: #16192b; border-color: #d5dcec; }
+
+    /* Cursor de acompanhamento visual do player. O JS do alphaTab cria e move
+       .at-cursor-bar / .at-cursor-beat / .at-selection, mas o bundle não traz
+       aparência alguma para eles: sem estas regras a barra existe e caminha,
+       só que invisível. */
+    #alphaTabArea .at-cursor-bar { background: rgba(217, 45, 74, 0.20); }
+    #alphaTabArea .at-cursor-beat { background: rgba(217, 45, 74, 0.55); width: 3px; }
+    #alphaTabArea .at-selection div { background: rgba(217, 45, 74, 0.12); }
+    #alphaTabArea .at-highlight * { fill: #d92d4a; stroke: #d92d4a; }
+
+    /* ── Modo Foco: subtópico atual + anotações salvas ──────────────────────── */
+    #focusContext { display: flex; gap: 16px; padding: 12px 24px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+    .focus-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    #focusSubtopicCol { flex: 0 1 40%; }
+    #focusNotesCol { flex: 1 1 auto; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; max-height: 20vh; overflow-y: auto; }
+    .focus-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); }
+    /* Subtópico é campo de texto livre: editável direto no Modo Foco. */
+    #focusSubtopic { width: 100%; font-size: 1.5rem; font-weight: 700; line-height: 1.2; color: var(--accent); background: transparent; border: none; border-bottom: 2px dashed transparent; border-radius: 0; padding: 0 0 2px; outline: none; font-family: inherit; }
+    #focusSubtopic::placeholder { font-size: 1rem; font-weight: 500; font-style: italic; color: var(--text-secondary); opacity: 1; }
+    #focusSubtopic:hover { border-bottom-color: var(--border); }
+    #focusSubtopic:focus { border-bottom-color: var(--accent); }
+    #focusNotesText { font-size: 14px; line-height: 1.5; color: var(--text-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
+    #focusNotesText.vazio { font-style: italic; color: var(--text-secondary); }
+
+    /* ── Analytics ──────────────────────────────────────────────────────────── */
+    #analyticsView { position: fixed; inset: 0; z-index: 850; background: var(--bg-primary); color: var(--text-primary); display: flex; flex-direction: column; }
+    #analyticsTopBar { display: flex; align-items: center; gap: 16px; padding: 14px 24px; background: var(--topbar-bg); border-bottom: 1px solid var(--border); }
+    #analyticsTopBar h2 { font-size: 20px; font-weight: 600; }
+    #analyticsBody { flex: 1; overflow-y: auto; padding: 20px 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-content: start; }
+    .metric-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+    .metric-card h3 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 14px; }
+    .metric-card h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); margin: 16px 0 8px; }
+    #anNivel { display: inline-block; padding: 5px 16px; border-radius: 999px; background: var(--bg-tertiary); border: 1px solid var(--border); font-size: 1.3rem; font-weight: 700; }
+    #anNivel.nivel-avancado { background: var(--success); color: #fff; border-color: var(--success); }
+    #anNivel.nivel-intermediario { background: var(--warning); color: #fff; border-color: var(--warning); }
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 10px; margin-top: 14px; }
+    .metric { background: var(--bg-tertiary); border-radius: 8px; padding: 10px 8px; text-align: center; }
+    .metric span { display: block; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .metric label { display: block; font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+    .an-lista { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+    .an-item { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; background: var(--bg-tertiary); border-radius: 6px; }
+    .an-item b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .an-vazio { font-size: 13px; font-style: italic; color: var(--text-secondary); }
+    .an-form { display: flex; gap: 8px; margin-bottom: 14px; }
+    .an-form input[type="text"] { flex: 1; min-width: 0; padding: 9px 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 14px; outline: none; }
+    .an-form input[type="text"]:focus { border-color: var(--accent); }
+    .an-form select { padding: 9px 10px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 13px; }
+    .an-goal-grupo { margin-bottom: 14px; }
+    .an-goal-grupo:last-child { margin-bottom: 0; }
+    .an-goals { display: flex; flex-direction: column; gap: 6px; }
+    .an-goal { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bg-tertiary); border-radius: 6px; font-size: 14px; }
+    .an-goal input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; flex: 0 0 auto; cursor: pointer; }
+    .an-goal > span { flex: 1; overflow-wrap: anywhere; }
+    .an-goal.feito > span { text-decoration: line-through; color: var(--text-secondary); }
+    .an-goal button { background: transparent; border: none; cursor: pointer; font-size: 14px; color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; }
+    .an-goal button:hover { background: var(--bg-primary); color: var(--warning); }
+    .an-progresso { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+    .an-barra { flex: 1; height: 10px; background: var(--bg-tertiary); border-radius: 999px; overflow: hidden; }
+    .an-barra-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width 0.3s ease; }
+    .an-progresso > span { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; }
+    .an-progresso > label { flex: 0 0 auto; color: var(--text-secondary); }
+    #anChart { display: flex; align-items: flex-end; gap: 6px; height: 150px; }
+    .an-barra-col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; }
+    .an-barra-v { width: 100%; max-width: 44px; background: var(--accent); border-radius: 4px 4px 0 0; }
+    .an-barra-valor { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .an-barra-data { font-size: 10px; color: var(--text-secondary); white-space: nowrap; }
+  </style>
+</head>
+<body>
+
+  <!-- VIEW 1: Schedule View -->
+  <div id="scheduleView" class="app-container">
+    
+    <!-- Left Sidebar -->
+    <aside id="calendarSidebar" class="sidebar">
+      <div class="sidebar-header">
+        🎸 Guitar Study Router
+      </div>
+      <div class="days-container">
+        <button class="day-btn active" data-day="monday">Segunda</button>
+        <button class="day-btn" data-day="tuesday">Terça</button>
+        <button class="day-btn" data-day="wednesday">Quarta</button>
+        <button class="day-btn" data-day="thursday">Quinta</button>
+        <button class="day-btn" data-day="friday">Sexta</button>
+        <button class="day-btn" data-day="saturday">Sábado</button>
+        <button class="day-btn" data-day="sunday">Domingo</button>
+      </div>
+      <div class="sidebar-footer">
+        <button id="btnThemeToggle" class="btn-secondary theme-toggle" title="Alternar tema" aria-label="Alternar tema">
+          <span id="themeToggleIcon" aria-hidden="true">🌙</span>
+          <span id="themeToggleLabel">Modo Escuro</span>
+        </button>
+        <button id="btnAnalytics" class="btn-secondary">📊 Analytics</button>
+        <button id="btnImport" class="btn-secondary">📥 Importar</button>
+        <button id="btnExport" class="btn-secondary">📤 Exportar</button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main id="dayContent" class="main-content">
+      <div class="content-header">
+        <h1 id="dayTitle">Segunda</h1>
+        <div class="header-actions">
+          <button id="btnRunDay" class="btn-primary" title="Executar todos os blocos do dia em sequência, com os descansos">▶ Executar Dia</button>
+          <button id="btnAddBlock" class="btn-primary">+ Novo Bloco</button>
+        </div>
+      </div>
+      <div class="block-list-container">
+        <div id="blockList">
+          <!-- Blocks will be dynamically inserted here -->
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- VIEW 2: Focus Mode -->
+  <div id="focusView" class="hidden">
+    <!-- Top Bar -->
+    <div id="focusTopBar">
+      <button id="btnExitFocus" class="btn-secondary">✕ Sair</button>
+      <div id="focusTopic" class="block-topic-badge badge-tecnica">Técnica</div>
+      <div class="topbar-right">
+        <div id="focusBlockInfo">Restantes: 2 blocos</div>
+        <button id="btnToggleMedia" class="btn-secondary hidden">Ver tablatura</button>
+      </div>
+    </div>
+
+    <!-- Contexto do bloco: subtópico em destaque + anotações salvas do usuário -->
+    <div id="focusContext">
+      <div id="focusSubtopicCol" class="focus-col">
+        <span class="focus-label">Estudando agora</span>
+        <input type="text" id="focusSubtopic" maxlength="140" autocomplete="off" spellcheck="false"
+               placeholder="Escreva aqui o item de estudo…" title="Edite o subtópico / item de estudo deste bloco">
+      </div>
+      <div id="focusNotesCol" class="focus-col">
+        <span class="focus-label">📝 Minhas anotações</span>
+        <p id="focusNotesText"></p>
+      </div>
+    </div>
+
+    <!-- Timer Area -->
+    <div id="timerArea">
+      <div id="timerDisplay">15:00</div>
+      <div id="timerLabel">Treino</div>
+      <button id="btnTimerPause" class="btn-secondary" title="Pausar ou retomar o cronômetro">⏸ Pausar Timer</button>
+    </div>
+
+    <!-- Metronome Panel (recolhível e arrastável) -->
+    <div id="metronomePanel">
+      <div id="metronomePanelHeader">
+        <span id="metronomeHandle" class="metronome-handle" role="button" tabindex="0"
+              aria-label="Mover painel do metrônomo. Use as setas do teclado.">⠿</span>
+        <span class="metronome-title">Metrônomo</span>
+        <button id="btnMetronomeToggle" title="Iniciar ou parar o metrônomo">▶ Iniciar</button>
+        <button id="btnMetronomeCollapse" title="Recolher painel" aria-label="Recolher painel" aria-expanded="true">▼</button>
+      </div>
+      <div id="metronomeBody">
+        <div class="metronome-controls">
+          <div class="metronome-row">
+            <label>BPM</label>
+            <input type="number" id="metronomeBpm" value="120" min="30" max="300" style="width: 60px;">
+          </div>
+          <input type="range" id="metronomeBpmSlider" min="30" max="300" value="120" style="width: 100%;">
+          <div class="metronome-row">
+            <label>Fórmula</label>
+            <select id="metronomeTimeSig">
+              <option value="4/4">4/4</option>
+              <option value="3/4">3/4</option>
+              <option value="6/8">6/8</option>
+              <option value="2/4">2/4</option>
+            </select>
+          </div>
+          <div id="beatIndicators" class="beat-indicators-container">
+            <div class="beat-dot accent"></div>
+            <div class="beat-dot"></div>
+            <div class="beat-dot"></div>
+            <div class="beat-dot"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AlphaTab Area -->
+    <div id="alphaTabArea" class="hidden">
+      <div id="atControls">
+        <!-- 1. Reprodução -->
+        <div class="at-card">
+          <div class="at-card-header">
+            <span>Reprodução</span>
+            <span id="atTimeReadout" class="hint">0:00 / 0:00</span>
+          </div>
+          <div class="at-card-body">
+            <button id="btnAtPlayPause" class="at-btn-play" title="Tocar ou pausar a tablatura">▶ Play</button>
+            <button id="btnAtStop" class="at-btn" title="Parar e voltar ao início">⏹ Stop</button>
+            <button id="btnAtCountIn" class="at-btn active" title="Contagem regressiva do metrônomo antes de começar e a cada volta do loop">🥁 Count-In</button>
+          </div>
+        </div>
+
+        <!-- 2. Andamento Direto -->
+        <div class="at-card">
+          <div class="at-card-header">
+            <span>Andamento</span>
+            <span id="tempoInfo" class="hint">Original: — BPM</span>
+          </div>
+          <div class="at-card-body">
+            <label class="at-field" title="Digite o BPM desejado para tocar imediatamente nessa velocidade">
+              <input type="number" id="atBpmInput" min="10" max="400" step="1" placeholder="120">
+              <span>BPM</span>
+            </label>
+            <label class="at-field" title="Velocidade em porcentagem do andamento original">
+              <input type="number" id="atPercentInput" min="10" max="300" step="5" value="100">
+              <span>%</span>
+            </label>
+            <button id="btnResetTempo" class="at-btn" title="Voltar ao andamento original da tablatura (100%)">100%</button>
+          </div>
+        </div>
+
+        <!-- 3. Repetição (Loop Integral ou A-B) -->
+        <div class="at-card">
+          <div class="at-card-header">
+            <span>Repetição (Loop)</span>
+            <span id="loopStatus" class="hint">Música inteira</span>
+          </div>
+          <div class="at-card-body">
+            <div class="at-segmented" role="group" aria-label="Modo de repetição">
+              <button type="button" id="btnLoopOff" class="at-seg-btn" data-loop-mode="off" title="Tocar apenas uma vez">Sem Loop</button>
+              <button type="button" id="btnLoopAll" class="at-seg-btn active" data-loop-mode="all" title="Repetir a tablatura inteira">🔁 Tab Inteira</button>
+              <button type="button" id="btnLoopAB" class="at-seg-btn" data-loop-mode="ab" title="Repetir entre o compasso A e o compasso B (ou selecione arrastando na partitura)">✂️ Trecho A–B</button>
+            </div>
+            <div id="atLoopAbFields" class="at-card-body hidden">
+              <label class="at-field" title="Compasso inicial (A)">
+                <span>De</span>
+                <input type="number" id="loopStart" min="1" placeholder="1">
+              </label>
+              <label class="at-field" title="Compasso final (B)">
+                <span>Até</span>
+                <input type="number" id="loopEnd" min="1" placeholder="4">
+              </label>
+              <button type="button" id="btnClearLoop" class="at-btn" title="Limpar trecho A-B e voltar a repetir a tab inteira">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. BPM Ramping (Aceleração Progressiva) -->
+        <div class="at-card">
+          <div class="at-card-header">
+            <span>BPM Ramping</span>
+            <span id="currentSpeed" class="at-badge">Desativado</span>
+          </div>
+          <div class="at-card-body">
+            <button type="button" id="btnRampToggle" class="at-btn" title="Aumentar a velocidade automaticamente a cada repetição do loop">📈 Ativar Ramping</button>
+            <div id="atRampFields" class="at-card-body hidden">
+              <label class="at-field" title="Velocidade inicial do treino progressivo (%)">
+                <span>Início</span>
+                <input type="number" id="rampStart" min="10" max="200" step="5" value="60">
+                <span>%</span>
+              </label>
+              <label class="at-field" title="Quanto subir a cada volta concluída (%)">
+                <span>+</span>
+                <input type="number" id="rampStep" min="1" max="50" step="1" value="5">
+                <span>%/volta</span>
+              </label>
+              <label class="at-field" title="Velocidade máxima (teto) onde o incremento para (%)">
+                <span>Alvo</span>
+                <input type="number" id="rampTarget" min="10" max="300" step="5" value="100">
+                <span>%</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="alphaTabContainer"></div>
+    </div>
+
+    <!-- Audio Area (estudo de técnica e repertório) -->
+    <div id="audioArea" class="hidden">
+      <div id="audioControls">
+        <div class="control-group">
+          <button id="btnAudioPlayPause" class="btn-secondary">▶ Play</button>
+          <button id="btnAudioStop" class="btn-secondary">⏹ Stop</button>
+          <span id="audioTime" class="hint">0:00 / 0:00</span>
+        </div>
+
+        <div class="control-group">
+          <label>Tom:</label>
+          <input type="range" id="audioTranspose" min="-12" max="12" step="1" value="0"
+                 title="Transpõe o áudio em semitons, mantendo a duração">
+          <span id="audioTransposeInfo" class="readout">0 semitons</span>
+        </div>
+
+        <div class="control-group">
+          <label>Andamento:</label>
+          <input type="range" id="audioTempo" min="25" max="200" step="1" value="100"
+                 title="Desacelera ou acelera sem alterar o tom">
+          <span id="audioTempoInfo" class="readout">100%</span>
+          <input type="number" id="audioOriginalBpm" min="20" max="400" step="1" placeholder="BPM orig."
+                 style="width: 88px;" title="BPM original do áudio, para ver o BPM resultante">
+        </div>
+
+        <div class="control-group">
+          <label>Volume:</label>
+          <input type="range" id="audioVolume" min="0" max="100" step="1" value="100" style="width: 100px;">
+        </div>
+
+        <div class="control-group">
+          <button id="btnAudioLoop" class="btn-secondary" title="Ativar ou desativar o loop A-B">🔇 Loop A-B</button>
+          <button id="btnAudioClearLoop" class="btn-secondary">Limpar Loop</button>
+          <span id="audioLoopInfo" class="hint">Arraste na forma de onda para marcar o trecho</span>
+        </div>
+      </div>
+
+      <div id="audioWaveWrap">
+        <canvas id="audioWave" aria-label="Forma de onda do áudio"></canvas>
+        <div id="audioLoadInfo" class="hint">Carregando áudio…</div>
+      </div>
+
+      <audio id="audioEl" preload="auto"></audio>
+    </div>
+  </div>
+
+  <!-- VIEW 3: Analytics -->
+  <div id="analyticsView" class="hidden">
+    <div id="analyticsTopBar">
+      <button id="btnAnalyticsBack" class="btn-secondary">← Voltar</button>
+      <h2>📊 Analytics</h2>
+    </div>
+    <div id="analyticsBody">
+
+      <!-- Onde estou -->
+      <section class="metric-card">
+        <h3>Onde estou</h3>
+        <div id="anNivel">—</div>
+        <div class="metric-grid">
+          <div class="metric"><span id="anHoras">0,0</span><label>horas de treino</label></div>
+          <div class="metric"><span id="anSessoes">0</span><label>sessões registradas</label></div>
+          <div class="metric"><span id="anBpmMax">—</span><label>BPM máximo</label></div>
+          <div class="metric"><span id="anBpmMedio">—</span><label>BPM médio</label></div>
+          <div class="metric"><span id="anMetasOk">0/0</span><label>metas concluídas</label></div>
+        </div>
+        <h4>Histórico recente</h4>
+        <div id="anHistorico" class="an-lista"></div>
+      </section>
+
+      <!-- Onde quero chegar -->
+      <section class="metric-card">
+        <h3>Onde quero chegar</h3>
+        <div class="an-form">
+          <input type="text" id="anGoalText" placeholder="Ex.: tocar o solo na velocidade original" maxlength="140">
+          <select id="anGoalPrazo" title="Horizonte da meta">
+            <option value="curto">Curto prazo</option>
+            <option value="longo">Longo prazo</option>
+          </select>
+          <button id="btnAddGoal" class="btn-primary">Adicionar</button>
+        </div>
+        <div id="anGoalsCurto" class="an-goals"></div>
+        <div id="anGoalsLongo" class="an-goals"></div>
+      </section>
+
+      <!-- Evolução técnica -->
+      <section class="metric-card">
+        <h3>Evolução técnica</h3>
+        <div class="an-progresso">
+          <div class="an-barra"><div id="anBarraMetas" class="an-barra-fill"></div></div>
+          <span id="anPctMetas">0%</span>
+          <label>metas concluídas</label>
+        </div>
+        <div class="an-progresso">
+          <div class="an-barra"><div id="anBarraEvolucao" class="an-barra-fill"></div></div>
+          <span id="anPctEvolucao">—</span>
+          <label>evolução de BPM</label>
+        </div>
+        <div class="an-progresso">
+          <div class="an-barra"><div id="anBarraHabilidades" class="an-barra-fill"></div></div>
+          <span id="anHabilidades">0/0</span>
+          <label>habilidades validadas</label>
+        </div>
+        <h4>BPM máximo por dia de treino</h4>
+        <div id="anChart"></div>
+        <p id="anChartVazio" class="an-vazio hidden">Nenhuma métrica registrada ainda. Preencha o BPM no fechamento do treino.</p>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- MODALS -->
+
+  <!-- Block Editor Modal -->
+  <div id="blockModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h2 id="modalTitle">Novo Bloco</h2>
+      <form id="blockForm">
+        <div class="form-group">
+          <label for="fieldTopic">Tópico</label>
+          <select id="fieldTopic">
+            <option value="Aquecimento">Aquecimento</option>
+            <option value="Técnica">Técnica</option>
+            <option value="Improvisação">Improvisação</option>
+            <option value="Harmonia">Harmonia</option>
+            <option value="Repertório">Repertório</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="fieldSubtopic">Subtópico / item de estudo</label>
+          <input type="text" id="fieldSubtopic" placeholder="Ex.: Pentatônica de Lá menor — posição 1" maxlength="140">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="fieldDuration">Duração (min)</label>
+            <input type="number" id="fieldDuration" min="1" value="15">
+          </div>
+          <div class="form-group">
+            <label for="fieldRest">Descanso (min)</label>
+            <input type="number" id="fieldRest" min="0" value="5">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="fieldNotes">Anotações</label>
+          <textarea id="fieldNotes" rows="3"></textarea>
+        </div>
+        <div class="form-group" id="tabFileGroup">
+          <label>Tablatura</label>
+          <div class="input-group">
+            <input type="text" id="fieldTabDisplay" readonly placeholder="Nenhum arquivo selecionado">
+            <button type="button" id="btnSelectTab" class="btn-secondary">Selecionar Arquivo</button>
+          </div>
+        </div>
+        <div class="form-group" id="audioFileGroup">
+          <label>Áudio de referência</label>
+          <div class="input-group">
+            <input type="text" id="fieldAudioDisplay" readonly placeholder="Nenhum áudio selecionado">
+            <button type="button" id="btnSelectAudio" class="btn-secondary">Selecionar Áudio</button>
+          </div>
+          <span class="hint">Opcional. Permite ouvir, transpor e looping A-B durante o estudo.</span>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="btnModalCancel" class="btn-secondary">Cancelar</button>
+          <button type="button" id="btnModalSave" class="btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Import Mode Modal -->
+  <div id="importModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h2>Importar Cronograma</h2>
+      <p style="margin-bottom: 20px; color: var(--text-secondary);">Escolha como deseja importar os dados.</p>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button id="btnImportWeek" class="btn-primary">Importar Semana Inteira</button>
+        <button id="btnImportDay" class="btn-secondary">Substituir Dia Atual</button>
+      </div>
+      <div class="modal-actions">
+        <button id="btnImportCancel" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Training Closure Modal -->
+  <div id="closureModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h2>📊 Fechamento de Treino</h2>
+      <div class="form-group">
+        <label for="closureNotes">Anotações do treino:</label>
+        <textarea id="closureNotes" rows="4"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="closureBpm">BPM Máximo alcançado:</label>
+        <input type="number" id="closureBpm" min="0">
+      </div>
+      <div class="modal-actions">
+        <button id="btnClosureSkip" class="btn-secondary">Pular</button>
+        <button id="btnClosureSave" class="btn-primary">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template for JS block rendering -->
+  <template id="blockTemplate">
+    <div class="block-card" draggable="true">
+      <div class="block-header">
+        <span class="block-drag-handle">☰</span>
+        <span class="block-topic-badge"></span>
+        <span class="block-subtopic"></span>
+        <span class="block-duration"></span>
+        <span class="block-rest"></span>
+        <div class="block-actions">
+          <button class="btn-icon btn-start" title="Iniciar Bloco">▶</button>
+          <button class="btn-icon btn-edit" title="Editar">✏️</button>
+          <button class="btn-icon btn-delete" title="Excluir">🗑️</button>
+          <button class="btn-icon btn-toggle-notes" title="Anotações">📝</button>
+        </div>
+      </div>
+      <div class="block-notes-area hidden">
+        <p class="block-notes-text"></p>
+        <div class="block-metrics"></div>
+        <p class="block-tab-path"></p>
+      </div>
+    </div>
+  </template>
+
+  <!-- Scripts -->
+  <script src="lib/alphatab/alphaTab.min.js"></script>
+  <script src="lib/audio-dsp.js"></script>
+  <script src="renderer.js" defer></script>
+</body>
+</html>

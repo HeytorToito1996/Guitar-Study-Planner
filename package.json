@@ -1,0 +1,82 @@
+{
+  "name": "guitar-study-router",
+  "productName": "Guitar Study Router",
+  "version": "1.0.0",
+  "description": "Roteador de Estudos de Guitarra — Desktop App para produtividade e cronogramas de treino",
+  "main": "main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "node scripts/copy-alphatab.js",
+    "icons": "electron scripts/make-icons.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "@coderline/alphatab": "^1.3.2"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.guitarstudy.router",
+    "productName": "Guitar Study Router",
+    "copyright": "Roteador de Estudos de Guitarra",
+    "asar": true,
+    "asarUnpack": [
+      "lib/alphatab/**"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "icon.png",
+      "package.json",
+      "lib/**/*",
+      "!lib/alphatab/alphaTab.js",
+      "!lib/alphatab/alphaTab.mjs",
+      "!lib/alphatab/alphaTab.min.mjs",
+      "!lib/alphatab/alphaTab.core.mjs",
+      "!lib/alphatab/alphaTab.core.min.mjs",
+      "!lib/alphatab/alphaTab.vite.*",
+      "!lib/alphatab/alphaTab.webpack.*",
+      "!lib/alphatab/*.d.ts",
+      "!node_modules/@coderline/**",
+      "!**/*.map"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Guitar Study Router",
+      "installerLanguages": [
+        "pt_BR"
+      ],
+      "language": "1026",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}",
+      "unicode": true,
+      "requestExecutionLevel": "user"
+    }
+  }
+}
