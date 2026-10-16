@@ -42,7 +42,7 @@ opcional e um histórico de métricas (BPM alcançado por dia).
 
 ## ✨ Funcionalidades
 
-### 🗓️ Cronograma semanal
+### 📅 Cronograma semanal
 - Sete dias (Segunda → Domingo), com o dia atual selecionado automaticamente.
 - Criar / editar / excluir blocos em um modal (tópico, **subtópico em texto livre**, duração,
   descanso, anotações, tablatura, áudio).
@@ -167,7 +167,7 @@ Os artefatos saem em `dist/`:
 
 ---
 
-## 🗂️ Estrutura do projeto
+## 📁 Estrutura do projeto
 
 ```
 guitar-study-router/
@@ -221,7 +221,7 @@ guitar-study-router/
 
 ---
 
-## ⚠️ Limites e observações
+## 🚧 Limites e observações
 
 - Transposição: **−12 a +12 semitons** (cada troca processa o áudio, ~0,35 s).
 - Andamento: **25% a 200%**.
