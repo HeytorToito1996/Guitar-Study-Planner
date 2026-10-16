@@ -12,6 +12,7 @@ fechamento de treino com métricas e um painel de **Analytics**.
 ## 📑 Índice
 
 - [Visão geral](#-visão-geral)
+- [Telas](#-telas)
 - [Funcionalidades](#-funcionalidades)
 - [Tecnologias](#-tecnologias)
 - [Requisitos](#-requisitos)
@@ -40,6 +41,25 @@ opcional e um histórico de métricas (BPM alcançado por dia).
 
 ---
 
+## 📸 Telas
+
+### Agenda
+![Agenda](docs/01-agenda.png)
+
+### Novo bloco — subtópico em texto livre
+![Novo bloco](docs/02-novo-bloco.png)
+
+### Modo Foco — cronômetro, metrônomo e controles do player
+![Modo Foco](docs/03-modo-foco.png)
+
+### Tablatura — cursor de acompanhamento e trecho A–B
+![Tablatura](docs/04-tablatura.png)
+
+### Analytics — nível, horas, habilidades e metas
+![Analytics](docs/05-analytics.png)
+
+---
+
 ## ✨ Funcionalidades
 
 ### 📅 Cronograma semanal
@@ -55,6 +75,7 @@ opcional e um histórico de métricas (BPM alcançado por dia).
 - Botão **▶ Iniciar** no bloco ou **▶ Executar Dia** (roda o dia inteiro em sequência,
   respeitando os descansos).
 - Tela cheia com cronômetro grande de **treino** e **descanso**.
+- **⏸ Pausar Timer** — congela a contagem sem sair do Modo Foco (e retoma de onde parou).
 - **Subtópico editável ali mesmo**: digite e confirme com `Enter` (ou saia do campo) — salva
   na hora e reflete no cartão da agenda.
 - **📝 Anotações** já salvas do bloco, exibidas ao lado.
@@ -65,18 +86,21 @@ opcional e um histórico de métricas (BPM alcançado por dia).
 - Renderiza arquivos **Guitar Pro** (`.gp3`, `.gp4`, `.gp5`, `.gpx`, `.gp`) com tablatura,
   partitura e playback por soundfont — tudo **offline** (soundfont embutido).
 - **Cursor de acompanhamento visual**: barra que percorre os compassos e cursor de pulso.
-- **Loop automático**: ao chegar no fim do trecho, o player volta sozinho ao início.
-  Sem um trecho A–B definido, o trecho é a música inteira.
-- **Loop A–B**: informe compasso inicial e final e clique em *Fixar Loop*.
-- **Ramping (speed trainer)**: a cada volta concluída a velocidade sobe um passo, até o
-  **Tempo alvo** (que funciona como *teto*); alcançado o teto, ele continua repetindo nessa
-  velocidade.
-  - **Vel. Inicial %** — velocidade da primeira volta.
-  - **Step %** — quanto sobe por volta.
-  - **Tempo alvo** — teto do ramping (`% do original` ou BPM fixo).
-  - **▶ Stop** reinicia o ramping; a leitura viva (**trecho · posição · N× · velocidade**)
-    aparece ao lado dos controles.
-- Transposição de tom e ajuste de andamento durante o estudo.
+- **Repetição em três modos**:
+  - **Sem Loop** — toca uma vez e para.
+  - **🔁 Tab Inteira** — ao chegar no fim, volta sozinho ao começo (padrão).
+  - **✂️ Trecho A–B** — informe os compassos **De** / **Até**; também dá para
+    **arrastar o mouse sobre a partitura** para marcar o trecho.
+- **🥁 Count-In** — contagem do metrônomo antes de começar **e a cada volta** do loop.
+- **📈 Ramping (speed trainer)** — ligue `Ativar Ramping` e, a cada volta concluída, o player
+  sobe um passo de velocidade até o **Alvo %**, que funciona como *teto*; alcançado o teto,
+  ele continua repetindo nessa velocidade.
+  - **Início %** — velocidade da primeira volta.
+  - **+ %/volta** — quanto sobe por volta.
+  - **Alvo %** — teto do ramping.
+  - Durante o estudo aparece a leitura viva (**Volta N · 60% (72 BPM)**) ao lado dos campos.
+- **Andamento**: BPM direto, velocidade em % e botão **100%** para voltar ao original.
+- **▶ Play / ⏹ Stop** e leitura de tempo (`0:03 / 0:13`).
 
 ### 🎧 Áudio de referência (Técnica / Repertório)
 - Player de áudio para a gravação de referência do bloco (`mp3`, `wav`, `ogg`, `m4a`, `flac`,
@@ -84,6 +108,7 @@ opcional e um histórico de métricas (BPM alcançado por dia).
 - **Transposição offline** (WSOLA) — troca o tom sem alterar o tempo, direto para um WAV em
   memória, sem depender de internet.
 - Ajuste de **andamento** preservando o tom (`preservesPitch`).
+- **Loop A–B** no próprio áudio, para repetir o trecho difícil.
 - Preferências de tom/andamento ficam salvas por bloco.
 
 ### 📊 Fechamento do treino e métricas
@@ -212,9 +237,9 @@ guitar-study-router/
 2. **Estude** — clique em **▶ Iniciar** no bloco (ou **▶ Executar Dia** para a fila completa).
 3. **No Modo Foco** — ajuste o metrônomo, escreva o subtópico do dia e estude junto da
    tablatura/áudio.
-4. **Loop + ramping** — defina um trecho A–B (ou deixe a música inteira), coloque
-   `Vel. Inicial %`, `Step %` e o `Tempo alvo`, e toque: cada volta fica um pouco mais rápida
-   até o teto, e o loop continua.
+4. **Loop + ramping** — escolha **Sem Loop**, **🔁 Tab Inteira** ou **✂️ Trecho A–B** e,
+   se quiser, ligue o **Ramping** com `Início %`, `+ %/volta` e `Alvo %`: a cada volta o
+   player acelera um passo até o teto, com Count-In antes de cada repetição.
 5. **Feche o treino** — ao terminar, informe o **BPM máximo** e as anotações.
 6. **Acompanhe** — abra **📊 Analytics** para ver nível, horas, habilidades e evolução;
    crie metas para o que vem depois.
@@ -236,7 +261,7 @@ guitar-study-router/
 
 ## 📄 Licença e créditos
 
-- **Projeto:** MIT (ver `package.json`).
+- **Projeto:** MIT (ver [`LICENSE`](LICENSE)).
 - **[alphaTab](https://github.com/CoderLine/alphaTab)** — licença **MPL-2.0** — notação,
   renderização e playback das tablaturas.
 - **Soundfont SONiVOX** (`sonivox.sf2`) — licença própria, incluída com o alphaTab.
