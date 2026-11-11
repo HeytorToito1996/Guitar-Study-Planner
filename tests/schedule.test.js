@@ -27,7 +27,9 @@ test('salva, mantém backup e recupera arquivo danificado', t => {
   assert.deepEqual(JSON.parse(fs.readFileSync(file+'.bak','utf8')),a);
   fs.writeFileSync(file,'{broken');
   assert.deepEqual(loadSchedule(file),a);
-  assert.equal(fs.readFileSync(file+'.corrupt','utf8'),'{broken');
+  const corruptFiles = fs.readdirSync(dir).filter(name => name.startsWith('schedule.json.corrupt-'));
+  assert.equal(corruptFiles.length, 1);
+  assert.equal(fs.readFileSync(path.join(dir, corruptFiles[0]), 'utf8'), '{broken');
 });
 test('não substitui arquivo corrompido sem backup', t => {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'guitar-study-'));
@@ -44,4 +46,17 @@ test('rejeita salvamento inválido preservando dados', t => {
   saveSchedule(file,empty());
   assert.throws(()=>saveSchedule(file,{monday:[]}));
   assert.deepEqual(loadSchedule(file),empty());
+});
+
+test('não sobrescreve backup bom quando cronograma principal está corrompido', t => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'guitar-study-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'schedule.json');
+  saveSchedule(file,empty());
+  const next=empty();next.monday.push(block());
+  saveSchedule(file,next);
+  const backup=fs.readFileSync(file+'.bak','utf8');
+  fs.writeFileSync(file,'{broken');
+  assert.throws(()=>saveSchedule(file,next));
+  assert.equal(fs.readFileSync(file+'.bak','utf8'),backup);
 });
