@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (err) {
     console.error('Erro ao carregar o cronograma:', err);
+    alert('Não foi possível carregar o cronograma. O arquivo original foi preservado. Verifique o backup antes de editar.');
   }
 
   // Detect current real weekday
@@ -263,7 +264,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function saveSchedule() {
-    await window.electronAPI.saveSchedule(schedule);
+    try {
+      const result = await window.electronAPI.saveSchedule(schedule);
+      if (!result?.success) throw new Error('Salvamento não confirmado');
+    } catch (error) {
+      console.error('Falha ao salvar cronograma:', error);
+      alert('Não foi possível salvar o cronograma. Seus dados anteriores foram preservados.');
+      throw error;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -406,11 +414,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('btnImportWeek').addEventListener('click', async () => {
-    const imported = await window.electronAPI.importJson();
+    let imported;
+    try { imported = await window.electronAPI.importJson(); }
+    catch (error) { alert(error.message || 'Cronograma inválido.'); return; }
     if (imported) {
+      const previous = schedule;
       schedule = imported;
-      await saveSchedule();
-      renderBlocks();
+      try { await saveSchedule(); renderBlocks(); }
+      catch { schedule = previous; }
     }
     importModal.classList.add('hidden');
   });
@@ -418,9 +429,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btnImportDay').addEventListener('click', async () => {
     const imported = await window.electronAPI.importJson();
     if (imported && imported[currentDay]) {
+      const previous = schedule[currentDay];
       schedule[currentDay] = imported[currentDay];
-      await saveSchedule();
-      renderBlocks();
+      try { await saveSchedule(); renderBlocks(); }
+      catch { schedule[currentDay] = previous; }
     }
     importModal.classList.add('hidden');
   });
