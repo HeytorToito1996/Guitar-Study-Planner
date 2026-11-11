@@ -202,7 +202,16 @@ ipcMain.handle('file:readBinary', async (_event, filePath) => {
   try {
     if (typeof filePath !== 'string' || !/\\.(gp3|gp4|gp5|gpx|gp)$/i.test(filePath)) return null;
     const real = fs.realpathSync(filePath);
-    if (!authorizedTabs.has(real)) return null;
+    if (!authorizedTabs.has(real)) {
+      const choice = await dialog.showMessageBox(mainWindow, {
+        type: 'question', buttons: ['Cancelar', 'Autorizar leitura'], defaultId: 0, cancelId: 0,
+        title: 'Autorizar tablatura',
+        message: 'Permitir que o aplicativo leia esta tablatura?',
+        detail: real
+      });
+      if (choice.response !== 1) return null;
+      authorizedTabs.add(real);
+    }
     const buffer = fs.readFileSync(real);
     return buffer; // serializado como Buffer pelo IPC
   } catch {
