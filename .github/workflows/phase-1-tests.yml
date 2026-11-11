@@ -1,0 +1,17 @@
+name: Validate Phase 1 fixes
+on:
+  push:
+    branches: [fix/phase-1-followup-regressions]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
+      - run: node --check main.js && node --check renderer.js && node --check schedule-store.js && node --check schedule-validator.js
