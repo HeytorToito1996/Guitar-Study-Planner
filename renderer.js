@@ -120,6 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.error('Erro ao carregar o cronograma:', err);
     alert('Não foi possível carregar o cronograma. O arquivo original foi preservado. Verifique o backup antes de editar.');
+    return;
   }
 
   // Detect current real weekday
@@ -312,7 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function deleteBlock(id) {
     if (confirm('Tem certeza que deseja excluir este bloco?')) {
       schedule[currentDay] = schedule[currentDay].filter(b => b.id !== id);
-      saveSchedule().then(renderBlocks);
+      saveSchedule().then(renderBlocks).catch(() => {});
     }
   }
 
@@ -358,7 +359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tabFile = fieldTabDisplay.value || null;
     const audioFile = fieldAudioDisplay.value || null;
 
-    if (!topic || isNaN(duration) || isNaN(restTime)) {
+    if (!topic || !Number.isInteger(duration) || duration < 1 || duration > 1440 || !Number.isInteger(restTime) || restTime < 0 || restTime > 1440) {
       alert('Preencha os campos obrigatórios corretamente.');
       return;
     }
@@ -393,7 +394,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     saveSchedule().then(() => {
       blockModal.classList.add('hidden');
       renderBlocks();
-    });
+    }).catch(() => {});
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -427,7 +428,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('btnImportDay').addEventListener('click', async () => {
-    const imported = await window.electronAPI.importJson();
+    let imported;
+    try { imported = await window.electronAPI.importJson(); }
+    catch (error) { alert(error.message || 'Cronograma inválido.'); return; }
     if (imported && imported[currentDay]) {
       const previous = schedule[currentDay];
       schedule[currentDay] = imported[currentDay];
