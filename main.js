@@ -200,7 +200,7 @@ ipcMain.handle('dialog:exportJson', async (_event, data) => {
 // Ler conteúdo binário de um arquivo de tablatura (para alphaTab)
 ipcMain.handle('file:readBinary', async (_event, filePath) => {
   try {
-    if (typeof filePath !== 'string' || !/\\.(gp3|gp4|gp5|gpx|gp)$/i.test(filePath)) return null;
+    if (typeof filePath !== 'string' || !/\.(gp3|gp4|gp5|gpx|gp)$/i.test(filePath)) return null;
     const real = fs.realpathSync(filePath);
     if (!authorizedTabs.has(real)) {
       const choice = await dialog.showMessageBox(mainWindow, {
