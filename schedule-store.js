@@ -1,18 +1,25 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { validateSchedule, DAYS } = require('./schedule-validator');
 const empty = () => Object.fromEntries(DAYS.map(day => [day, []]));
 function writeAtomic(file, data, { backup = true } = {}) {
   const dir = path.dirname(file);
   fs.mkdirSync(dir, { recursive: true });
-  const tmp = file + '.' + process.pid + '.tmp';
+  const tmp = file + '.' + crypto.randomUUID() + '.tmp';
   try {
     fs.writeFileSync(tmp, JSON.stringify(data, null, 2), { encoding: 'utf8', flag: 'wx' });
     if (backup && fs.existsSync(file)) {
       const old = JSON.parse(fs.readFileSync(file, 'utf8'));
       validateSchedule(old);
-      fs.copyFileSync(file, file + '.bak');
+      const backupTmp = file + '.bak.' + crypto.randomUUID() + '.tmp';
+      try {
+        fs.copyFileSync(file, backupTmp);
+        fs.renameSync(backupTmp, file + '.bak');
+      } finally {
+        if (fs.existsSync(backupTmp)) fs.unlinkSync(backupTmp);
+      }
     }
     fs.renameSync(tmp, file);
   } finally {
@@ -37,7 +44,7 @@ function loadSchedule(file) {
       try {
         const restored = validateSchedule(JSON.parse(fs.readFileSync(backup, 'utf8')));
         // Preserve the damaged original for investigation, never overwrite it silently.
-        fs.copyFileSync(file, file + '.corrupt');
+        fs.copyFileSync(file, file + '.corrupt-' + crypto.randomUUID(), fs.constants.COPYFILE_EXCL);
         writeAtomic(file, restored, { backup: false });
         return restored;
       } catch (backupError) {
