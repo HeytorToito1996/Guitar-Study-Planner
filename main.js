@@ -11,6 +11,9 @@
 const { app, BrowserWindow, ipcMain, dialog, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { loadSchedule: readSchedule, saveSchedule: persistSchedule } = require('./schedule-store');
+const { validateSchedule } = require('./schedule-validator');
+const authorizedTabs = new Set();
 
 // ─── Caminhos de dados ──────────────────────────────────────────────────────
 const DATA_DIR = path.join(app.getPath('userData'), 'data');
@@ -35,30 +38,8 @@ const DEFAULT_SCHEDULE = {
 
 // ─── Helpers de persistência ────────────────────────────────────────────────
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-function loadSchedule() {
-  ensureDataDir();
-  if (!fs.existsSync(SCHEDULE_FILE)) {
-    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(DEFAULT_SCHEDULE, null, 2), 'utf-8');
-    return { ...DEFAULT_SCHEDULE };
-  }
-  try {
-    const raw = fs.readFileSync(SCHEDULE_FILE, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return { ...DEFAULT_SCHEDULE };
-  }
-}
-
-function saveSchedule(data) {
-  ensureDataDir();
-  fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(data, null, 2), 'utf-8');
-}
+function loadSchedule() { return readSchedule(SCHEDULE_FILE); }
+function saveSchedule(data) { persistSchedule(SCHEDULE_FILE, data); }
 
 // ─── Janela principal ──────────────────────────────────────────────────────
 
@@ -98,6 +79,8 @@ function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
+  mainWindow.webContents.on('will-navigate', event => event.preventDefault());
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   // Esconder barra de menu padrão
   mainWindow.setMenuBarVisibility(false);
@@ -157,7 +140,9 @@ ipcMain.handle('dialog:openGpFile', async () => {
     properties: ['openFile']
   });
   if (result.canceled || result.filePaths.length === 0) return null;
-  return result.filePaths[0];
+  const selected = fs.realpathSync(result.filePaths[0]);
+  authorizedTabs.add(selected);
+  return selected;
 });
 
 // Abrir diálogo para selecionar arquivo de áudio (repertório)
@@ -186,9 +171,10 @@ ipcMain.handle('dialog:importJson', async () => {
   if (result.canceled || result.filePaths.length === 0) return null;
   try {
     const raw = fs.readFileSync(result.filePaths[0], 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return null;
+    return validateSchedule(JSON.parse(raw));
+  } catch (error) {
+    console.warn('Importação inválida:', error.message);
+    throw new Error('Arquivo JSON inválido: ' + error.message);
   }
 });
 
@@ -203,6 +189,7 @@ ipcMain.handle('dialog:exportJson', async (_event, data) => {
   });
   if (result.canceled || !result.filePath) return false;
   try {
+    validateSchedule(data);
     fs.writeFileSync(result.filePath, JSON.stringify(data, null, 2), 'utf-8');
     return true;
   } catch {
@@ -213,7 +200,10 @@ ipcMain.handle('dialog:exportJson', async (_event, data) => {
 // Ler conteúdo binário de um arquivo de tablatura (para alphaTab)
 ipcMain.handle('file:readBinary', async (_event, filePath) => {
   try {
-    const buffer = fs.readFileSync(filePath);
+    if (typeof filePath !== 'string' || !/\\.(gp3|gp4|gp5|gpx|gp)$/i.test(filePath)) return null;
+    const real = fs.realpathSync(filePath);
+    if (!authorizedTabs.has(real)) return null;
+    const buffer = fs.readFileSync(real);
     return buffer; // serializado como Buffer pelo IPC
   } catch {
     return null;
