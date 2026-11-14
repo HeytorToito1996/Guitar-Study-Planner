@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Study Planner</title>
+<style>
+:root{font-family:system-ui,sans-serif;color-scheme:dark;--bg:#111827;--panel:#1f2937;--accent:#e94560}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f9fafb;padding:28px}
+main{max-width:920px;margin:auto}h1{margin:0 0 8px}p{color:#cbd5e1;line-height:1.5}
+label{display:block;font-weight:600;margin:16px 0 7px}textarea,input,select{background:#111827;color:white;border:1px solid #4b5563;border-radius:8px;padding:12px;width:100%;font:inherit}
+textarea{min-height:100px;resize:vertical}.panel{background:var(--panel);padding:22px;border-radius:14px;margin:18px 0}
+.days{display:flex;gap:10px;flex-wrap:wrap}.days label{display:flex;gap:6px;align-items:center;font-weight:400;margin:5px 0}
+.days input{width:auto}button{border:0;border-radius:8px;padding:12px 18px;background:var(--accent);color:white;font-weight:700;cursor:pointer}
+button.secondary{background:#374151}button:disabled{opacity:.5;cursor:wait}
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}.day{border-top:1px solid #4b5563;padding:12px 0}
+.block{padding:10px 12px;background:#111827;border-radius:8px;margin:8px 0}
+.small{font-size:13px;color:#cbd5e1}.error{color:#fca5a5}.ok{color:#86efac}
+[hidden]{display:none!important}
+</style></head>
+<body><main>
+<h1>✨ AI Study Planner</h1>
+<p>Descreva o que deseja melhorar. A IA cria uma proposta semanal que você revisa antes de aplicar ao cronograma.</p>
+<section class="panel">
+<label for="goal">Objetivo de estudo</label>
+<textarea id="goal" maxlength="1200" placeholder="Quero melhorar minha palhetada alternada, precisão e velocidade..." required></textarea>
+<label for="minutes">Minutos disponíveis por dia</label>
+<input id="minutes" type="number" min="10" max="240" value="60">
+<label>Dias de estudo</label>
+<div class="days" id="days">
+<label><input type="checkbox" value="monday" checked> Seg</label>
+<label><input type="checkbox" value="tuesday" checked> Ter</label>
+<label><input type="checkbox" value="wednesday" checked> Qua</label>
+<label><input type="checkbox" value="thursday" checked> Qui</label>
+<label><input type="checkbox" value="friday" checked> Sex</label>
+<label><input type="checkbox" value="saturday"> Sáb</label>
+<label><input type="checkbox" value="sunday"> Dom</label>
+</div>
+<p class="small">Nesta primeira versão, o plano é gerado pelo objetivo informado. Importação de PDFs e vídeos será implementada posteriormente.</p>
+<div class="actions"><button id="generate">Gerar cronograma</button></div>
+</section>
+<section id="preview" class="panel" hidden>
+<h2>Pré-visualização</h2><p>Confira os exercícios e a duração antes de salvar.</p>
+<div id="plan"></div>
+<label for="mode">Como aplicar?</label>
+<select id="mode"><option value="replace">Substituir apenas os dias gerados</option><option value="append">Adicionar aos dias existentes</option></select>
+<div class="actions"><button id="apply">Aplicar ao cronograma</button><button class="secondary" id="discard">Descartar proposta</button></div>
+</section>
+<p id="status" role="status" aria-live="polite"></p>
+</main><script src="ai-planner-ui.js" defer></script></body></html>
