@@ -218,3 +218,42 @@ ipcMain.handle('file:readBinary', async (_event, filePath) => {
     return null;
   }
 });
+
+
+const { generatePlan, mergeSchedule } = require('./ai/planner-service');
+let aiWindow = null;
+let pendingAiPlan = null;
+function openAiPlanner() {
+  if (aiWindow && !aiWindow.isDestroyed()) { aiWindow.focus(); return; }
+  pendingAiPlan = null;
+  aiWindow = new BrowserWindow({
+    width:980, height:850, minWidth:740, minHeight:600,
+    title:'AI Study Planner', parent:mainWindow || undefined,
+    webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:false}
+  });
+  aiWindow.loadFile('ai-planner.html');
+  aiWindow.webContents.on('will-navigate', event => event.preventDefault());
+  aiWindow.webContents.setWindowOpenHandler(() => ({action:'deny'}));
+  aiWindow.on('closed',()=>{aiWindow=null;pendingAiPlan=null;});
+}
+ipcMain.handle('ai:open', event => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('Janela não autorizada.');
+  openAiPlanner();
+});
+ipcMain.handle('ai:generate', async (event, request) => {
+  if (!aiWindow || event.sender !== aiWindow.webContents) throw new Error('Janela não autorizada.');
+  pendingAiPlan = null;
+  const result = await generatePlan(request);
+  if (!aiWindow || event.sender !== aiWindow.webContents) throw new Error('Janela fechada.');
+  pendingAiPlan = result;
+  return result;
+});
+ipcMain.handle('ai:apply', (event, mode) => {
+  if (!aiWindow || event.sender !== aiWindow.webContents || !pendingAiPlan)
+    throw new Error('Nenhuma proposta válida para aplicar.');
+  const merged = mergeSchedule(loadSchedule(), pendingAiPlan, mode);
+  saveSchedule(merged);
+  pendingAiPlan = null;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.reload();
+  return {success:true};
+});
