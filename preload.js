@@ -9,6 +9,10 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
 
+  openAiPlanner: () => ipcRenderer.invoke('ai:open'),
+  generateAiPlan: request => ipcRenderer.invoke('ai:generate', request),
+  applyAiPlan: mode => ipcRenderer.invoke('ai:apply', mode),
+
   // ── Cronograma ────────────────────────────────────────────────
   /** Carrega o cronograma semanal do arquivo JSON local */
   loadSchedule: () => ipcRenderer.invoke('schedule:load'),
