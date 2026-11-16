@@ -1,9 +1,9 @@
 {
-  "name": "guitar-study-router",
-  "productName": "Guitar Study Router",
-  "desktopName": "com.guitarstudy.router",
-  "version": "1.1.0",
-  "description": "Roteador de Estudos de Guitarra — Desktop App para produtividade e cronogramas de treino",
+  "name": "guitar-routine",
+  "productName": "Guitar Routine",
+  "desktopName": "com.guitarroutine.app",
+  "version": "1.1.1",
+  "description": "Guitar Routine — Desktop App para produtividade e cronogramas de treino de guitarra",
   "main": "main.js",
   "author": "Heytor Toito <HeytorToito1996@users.noreply.github.com>",
   "homepage": "https://github.com/HeytorToito1996/Guitar-Study-Planner",
@@ -33,9 +33,9 @@
     "minimatch": "^11.0.3"
   },
   "build": {
-    "appId": "com.guitarstudy.router",
-    "productName": "Guitar Study Router",
-    "copyright": "Roteador de Estudos de Guitarra",
+    "appId": "com.guitarroutine.app",
+    "productName": "Guitar Routine",
+    "copyright": "Guitar Routine",
     "asar": true,
     "asarUnpack": [
       "lib/alphatab/**"
@@ -89,7 +89,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Guitar Study Router",
+      "shortcutName": "Guitar Routine",
       "installerLanguages": [
         "pt_BR"
       ],

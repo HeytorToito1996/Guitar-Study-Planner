@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Guitar Routine — App de estudos de guitarra: cronograma semanal, modo foco, tablatura, metrônomo e analytics. Baixe para Windows ou Linux.">
+  <title>Guitar Routine | A sua rotina de estudos de guitarra</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="landing-page.css">
+  <link rel="icon" href="icon.png">
+</head>
+<body>
+
+  <!-- ===== NAVEGAÇÃO ===== -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="#" class="nav-logo">
+        <img src="icon.png" alt="Logo" width="32" height="32">
+        <span>Guitar Routine</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#sobre">Sobre</a></li>
+        <li><a href="#funcionalidades">Funcionalidades</a></li>
+        <li><a href="#telas">Telas</a></li>
+        <li><a href="#download">Download</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a href="#download" class="btn btn-primary">Baixar Agora</a>
+        <button class="theme-toggle" aria-label="Alternar tema">🌙</button>
+        <button class="nav-toggle" aria-label="Abrir menu">☰</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero" id="hero">
+    <div class="hero-content">
+      <span class="hero-badge">Novo — Versão 1.1.0</span>
+      <h1>Estude guitarra com método.<br><span class="gradient-text">O seu roteador de estudos.</span></h1>
+      <p class="hero-subtitle">Cronograma semanal, Modo Foco com cronômetro e metrônomo, player de tablatura com loop e ramping de velocidade, áudio de referência com transposição offline e painel de analytics. Tudo num único app desktop.</p>
+      <div class="hero-cta">
+        <a href="#download" class="btn btn-primary btn-large">Baixar para Windows</a>
+        <a href="#download" class="btn btn-outline btn-large">Baixar para Linux</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-value">7</span>
+          <span class="stat-label">dias de cronograma</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">Offline</span>
+          <span class="stat-label">sem precisar de internet</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">2 SO</span>
+          <span class="stat-label">Windows e Linux</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-card hero-card-1">
+        <div class="card-glare"></div>
+        <img src="docs/03-modo-foco.png" alt="Modo Foco" class="card-img">
+        <div class="card-tag">Modo Foco</div>
+      </div>
+      <div class="hero-card hero-card-2">
+        <div class="card-glare"></div>
+        <img src="docs/04-tablatura.png" alt="Tablatura" class="card-img">
+        <div class="card-tag">Tablatura</div>
+      </div>
+      <div class="hero-card hero-card-3">
+        <div class="card-glare"></div>
+        <img src="docs/05-analytics.png" alt="Analytics" class="card-img">
+        <div class="card-tag">Analytics</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SOBRE ===== -->
+  <section class="sobre" id="sobre">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Para quem é o Guitar Routine?</h2>
+        <p class="section-desc">Feito para quem estuda sozinho e quer saber <strong>o quê</strong> praticar, <strong>quanto tempo</strong> e <strong>em que velocidade</strong>.</p>
+      </div>
+      <div class="sobre-grid">
+        <div class="sobre-card">
+          <div class="card-icon">📅</div>
+          <h3>Cronograma semanal</h3>
+          <p>Monte a semana com 7 dias. Cada dia tem uma fila de blocos de estudo — tópico, subtópico, duração, descanso e anotações.</p>
+        </div>
+        <div class="sobre-card">
+          <div class="card-icon">🎯</div>
+          <h3>Modo Foco</h3>
+          <p>Execute um bloco ou o dia inteiro com cronômetro grande, metrônomo, tablatura e áudio de referência lado a lado.</p>
+        </div>
+        <div class="sobre-card">
+          <div class="card-icon">📊</div>
+          <h3>Analytics</h3>
+          <p>Acompanhe o nível técnico, horas de treino, habilidades validadas e a evolução do BPM ao longo do tempo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FUNCIONALIDADES ===== -->
+  <section class="funcionalidades" id="funcionalidades">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Tudo o que você precisa para estudar</h2>
+        <p class="section-desc">Funcionalidades pensadas para quem pratica guitarra sozinho, com método e métricas reais.</p>
+      </div>
+      <div class="func-grid">
+        <div class="func-card">
+          <div class="func-header">
+            <div class="func-number">01</div>
+            <h3>Cronograma Semanal</h3>
+          </div>
+          <p>Sete dias (Segunda a Domingo), cada um com uma fila de blocos de estudo. Crie, edite, exclua e reordene blocos com arrastar e soltar. Tópicos: Aquecimento, Técnica, Improvisação, Harmonia e Repertório. Importa e exporta o cronograma completo em JSON.</p>
+          <ul>
+            <li>Duração e descanso por bloco</li>
+            <li>Subtópico em texto livre</li>
+            <li>Anexar tablatura e áudio</li>
+            <li>Importar / Exportar JSON</li>
+          </ul>
+        </div>
+        <div class="func-card">
+          <div class="func-header">
+            <div class="func-number">02</div>
+            <h3>Modo Foco</h3>
+          </div>
+          <p>Execute um bloco ou o dia inteiro em sequência. Cronômetro grande de treino e descanso, metrônomo com Web Audio API, subtópico editável ao vivo e anotações salvas do bloco.</p>
+          <ul>
+            <li>Cronômetro treino / descanso</li>
+            <li>▶ Executar Dia (sequência completa)</li>
+            <li>Pausar e retomar o timer</li>
+            <li>Subtópico editável em tempo real</li>
+          </ul>
+        </div>
+        <div class="func-card">
+          <div class="func-header">
+            <div class="func-number">03</div>
+            <h3>Player de Tablatura</h3>
+          </div>
+          <p>Renderiza arquivos Guitar Pro (.gp3, .gp4, .gp5, .gpx, .gp) com alphaTab — tablatura, partitura e playback offline (soundfont embutido). Cursor de acompanhamento, loop A–B, count-in e mixer de trilhas (mute/solo).</p>
+          <ul>
+            <li>Guitar Pro offline</li>
+            <li>Cursor de acompanhamento visual</li>
+            <li>Loop A–B e Tab Inteira</li>
+            <li>Mixer Mute / Solo por trilha</li>
+          </ul>
+        </div>
+        <div class="func-card">
+          <div class="func-header">
+            <div class="func-number">04</div>
+            <h3>Ramping de Velocidade</h3>
+          </div>
+          <p>Treino progressivo: a cada volta do loop o player sobe um passo de velocidade até o alvo definido. Início %, incremento por volta e teto %, com leitura viva da velocidade atual.</p>
+          <ul>
+            <li>Início %, +%/volta, Alvo %</li>
+            <li>Count-in a cada repetição</li>
+            <li>Leitura viva (volta · % · BPM)</li>
+            <li>Repete no teto após alcançá-lo</li>
+          </ul>
+        </div>
+        <div class="func-card">
+          <div class="func-header">
+            <div class="func-number">05</div>
+            <h3>Áudio de Referência</h3>
+          </div>
+          <p>Player de áudio para gravação de referência do bloco (mp3, wav, ogg, m4a, flac, opus…). Transposição offline (WSOLA) — troca o tom sem alterar o tempo — e ajuste de andamento preservando o tom. Loop A–B no próprio áudio.</p>
+          <ul>
+            <li>Transposição −12 a +12 semitons</li>
+            <li>Andamento 25% a 200% sem alterar tom</li>
+            <li>Loop A–B na forma de onda</li>
+            <li>Preferências salvas por bloco</li>
+          </ul>
+        </div>
+        <div class="func-card">
+          <div class="func-header">
+            <div class="func-number">06</div>
+            <h3>Fechamento e Analytics</h3>
+          </div>
+          <p>Ao terminar o treino, registre BPM máximo e anotações. Cada fechamento gera uma métrica no histórico. O painel Analytics mostra nível técnico, horas de treino, habilidades validadas, metas e gráfico de evolução.</p>
+          <ul>
+            <li>BPM máximo por sessão</li>
+            <li>Horas de treino totais</li>
+            <li>Metas com progresso</li>
+            <li>Gráfico de evolução de BPM</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TELAS ===== -->
+  <section class="telas" id="telas">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Veja o app em ação</h2>
+        <p class="section-desc">Capturas reais da interface do Guitar Routine.</p>
+      </div>
+      <div class="telas-grid">
+        <div class="tela-card">
+          <img src="docs/01-agenda.png" alt="Agenda semanal" class="tela-img">
+          <div class="tela-overlay"><span class="tela-label">Agenda semanal</span></div>
+        </div>
+        <div class="tela-card">
+          <img src="docs/02-novo-bloco.png" alt="Novo bloco" class="tela-img">
+          <div class="tela-overlay"><span class="tela-label">Novo bloco de estudo</span></div>
+        </div>
+        <div class="tela-card">
+          <img src="docs/03-modo-foco.png" alt="Modo Foco" class="tela-img">
+          <div class="tela-overlay"><span class="tela-label">Modo Foco</span></div>
+        </div>
+        <div class="tela-card">
+          <img src="docs/04-tablatura.png" alt="Tablatura" class="tela-img">
+          <div class="tela-overlay"><span class="tela-label">Player de tablatura</span></div>
+        </div>
+        <div class="tela-card">
+          <img src="docs/05-analytics.png" alt="Analytics" class="tela-img">
+          <div class="tela-overlay"><span class="tela-label">Analytics</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== DOWNLOAD ===== -->
+  <section class="download" id="download">
+    <div class="container">
+      <div class="download-content">
+        <h2>Pronto para começar?</h2>
+        <p>Escolha a versão para o seu sistema operacional. O app é gratuito, código aberto (MIT) e funciona totalmente offline.</p>
+        <div class="download-badge">
+          <span>🎵</span>
+          <span>Versão 1.1.0 · Sem cadastro · Sem rastreamento</span>
+        </div>
+        <div class="download-options">
+          <a href="https://github.com/HeytorToito1996/Guitar-Study-Planner/releases/download/v1.1.0/Guitar%20Routine-1.1.0-x64.exe" class="btn btn-primary btn-large" download>
+            ⬇ Windows (Instalador .exe)
+          </a>
+          <a href="https://github.com/HeytorToito1996/Guitar-Study-Planner/releases/download/v1.1.0/Guitar%20Routine-1.1.0-portable.exe" class="btn btn-outline btn-large" download>
+            💾 Windows (Portátil .exe)
+          </a>
+        </div>
+        <div class="download-options" style="margin-top: 16px;">
+          <a href="https://github.com/HeytorToito1996/Guitar-Study-Planner/releases/download/v1.1.0/Guitar%20Routine-1.1.0-x86_64.AppImage" class="btn btn-primary btn-large" download>
+            🐧 Linux (AppImage)
+          </a>
+          <a href="https://github.com/HeytorToito1996/Guitar-Study-Planner/releases/download/v1.1.0/Guitar%20Routine-1.1.0-amd64.deb" class="btn btn-outline btn-large" download>
+            📦 Linux (.deb / Debian/Ubuntu)
+          </a>
+        </div>
+        <div class="download-notes">
+          <p><strong>Observações importantes:</strong></p>
+          <ul style="margin-top: 10px; padding-left: 20px; text-align: left; display: inline-block;">
+            <li>Os executáveis não são assinados digitalmente, então o Windows SmartScreen pode avisar na primeira execução. Clique em "Mais informações" → "Executar assim mesmo".</li>
+            <li>No Linux, o AppImage pode exigir FUSE (ou execute com <code>--appimage-extract-and-run</code>). O pacote .deb requer <code>dpkg</code>.</li>
+            <li>Recomendado: Windows 10/11 (x64) ou Linux x64 recente.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="footer-logo">🎸 Guitar Routine</div>
+          <p>Roteador de estudos de guitarra para produtividade e cronogramas de treino. Código aberto, sem internet necessária.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Produto</h4>
+          <ul>
+            <li><a href="#funcionalidades">Funcionalidades</a></li>
+            <li><a href="#telas">Telas</a></li>
+            <li><a href="#download">Download</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Comunidade</h4>
+          <ul>
+            <li><a href="https://github.com/HeytorToito1996/Guitar-Study-Planner" target="_blank" rel="noopener">GitHub</a></li>
+            <li><a href="https://github.com/HeytorToito1996/Guitar-Study-Planner/issues" target="_blank" rel="noopener">Reportar problema</a></li>
+            <li><a href="LICENSE" target="_blank" rel="noopener">Licença MIT</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Tecnologias</h4>
+          <ul>
+            <li>Electron 45</li>
+            <li>alphaTab 1.8</li>
+            <li>Web Audio API</li>
+            <li>WSOLA (áudio offline)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Heytor Toito. Licença MIT.</span>
+        <span>Feito para estudar guitarra com método. 🎸</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="landing-page.js"></script>
+</body>
+</html>

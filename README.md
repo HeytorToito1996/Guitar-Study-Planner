@@ -1,4 +1,4 @@
-# 🎸 Guitar Study Router
+# 🎸 Guitar Routine
 
 Aplicativo **desktop** (Electron) para organizar e **executar** rotinas de estudo de guitarra:
 cronograma semanal, Modo Foco com cronômetro e metrônomo, player de tablatura com
@@ -189,10 +189,10 @@ Os artefatos saem em `dist/`:
 
 | Arquivo | Descrição |
 | --- | --- |
-| `Guitar Study Router-<versão>-x64.exe` | Instalador Windows (NSIS, escolhe pasta, cria atalhos) |
-| `Guitar Study Router-<versão>-portable.exe` | Versão portátil para Windows |
-| `Guitar Study Router-<versão>-x86_64.AppImage` | Aplicativo portátil para Linux |
-| `Guitar Study Router-<versão>-amd64.deb` | Pacote para Debian/Ubuntu e derivados |
+| `Guitar Routine-<versão>-x64.exe` | Instalador Windows (NSIS, escolhe pasta, cria atalhos) |
+| `Guitar Routine-<versão>-portable.exe` | Versão portátil para Windows |
+| `Guitar Routine-<versão>-x86_64.AppImage` | Aplicativo portátil para Linux |
+| `Guitar Routine-<versão>-amd64.deb` | Pacote para Debian/Ubuntu e derivados |
 | `win-unpacked/` ou `linux-unpacked/` | App desempacotado para inspeção/testes |
 
 > Os executáveis **não são assinados digitalmente**, então o Windows SmartScreen pode avisar
@@ -203,7 +203,7 @@ Os artefatos saem em `dist/`:
 ## 📁 Estrutura do projeto
 
 ```
-guitar-study-router/
+guitar-routine/
 ├─ main.js                  # Processo principal: janela, IPC, persistência, diálogos
 ├─ preload.js               # Ponte segura renderer ⇄ main (contextBridge)
 ├─ renderer.js              # Toda a lógica da interface (estado, telas, players)
@@ -234,7 +234,7 @@ guitar-study-router/
 
 | O quê | Onde |
 | --- | --- |
-| Estado (cronograma, metas, sessões e caminhos de mídia) | Windows: `%APPDATA%\Guitar Study Router\data\state.json`; Linux: `~/.config/Guitar Study Router/data/state.json` |
+| Estado (cronograma, metas, sessões e caminhos de mídia) | Windows: `%APPDATA%\Guitar Routine\data\state.json`; Linux: `~/.config/Guitar Routine/data/state.json` |
 | Backup automático do estado anterior | Ao lado do estado, em `state.json.bak` |
 | Tema, posição do metrônomo e preferências do player de áudio | `localStorage` do app |
 

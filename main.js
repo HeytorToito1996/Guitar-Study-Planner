@@ -30,7 +30,7 @@ function createWindow() {
   applyNativeTheme(nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
   mainWindow = new BrowserWindow({
     width: 1280, height: 820, minWidth: 960, minHeight: 640,
-    title: 'Guitar Study Router', icon: path.join(__dirname, 'icon.png'),
+    title: 'Guitar Routine', icon: path.join(__dirname, 'icon.png'),
     backgroundColor: THEME_BACKGROUNDS[currentTheme],
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
