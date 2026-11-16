@@ -2,7 +2,7 @@
   "name": "guitar-study-router",
   "productName": "Guitar Study Router",
   "desktopName": "com.guitarstudy.router",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Roteador de Estudos de Guitarra — Desktop App para produtividade e cronogramas de treino",
   "main": "main.js",
   "author": "Heytor Toito <HeytorToito1996@users.noreply.github.com>",
