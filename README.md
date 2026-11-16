@@ -17,7 +17,7 @@ fechamento de treino com métricas e um painel de **Analytics**.
 - [Tecnologias](#-tecnologias)
 - [Requisitos](#-requisitos)
 - [Como rodar em desenvolvimento](#-como-rodar-em-desenvolvimento)
-- [Como gerar o executável (Windows)](#-como-gerar-o-executável-windows)
+- [Como gerar os pacotes (Windows e Linux)](#-como-gerar-os-pacotes-windows-e-linux)
 - [Estrutura do projeto](#-estrutura-do-projeto)
 - [Onde ficam os dados](#-onde-ficam-os-dados)
 - [Fluxo rápido de uso](#-fluxo-rápido-de-uso)
@@ -131,7 +131,7 @@ opcional e um histórico de métricas (BPM alcançado por dia).
 
 | Camada | O que é usado |
 | --- | --- |
-| Shell desktop | [Electron](https://www.electronjs.org/) 33 |
+| Shell desktop | [Electron](https://www.electronjs.org/) 45 |
 | Interface | HTML + CSS + JavaScript puro (sem framework) |
 | Tablatura e playback | [alphaTab](https://alphatab.net/) 1.8 (som embutido `sonivox.sf2`) |
 | DSP de áudio | [WSOLA](https://en.wikipedia.org/wiki/WSOLA) implementado em `lib/audio-dsp.js` |
@@ -142,9 +142,9 @@ opcional e um histórico de métricas (BPM alcançado por dia).
 
 ## ✅ Requisitos
 
-- **Node.js 18+** (desenvolvido com Node 24) e **npm**.
-- **Windows 10/11 (x64)** para gerar e executar o instalador/portátil
-  (o app em si é Electron e pode ser adaptado para outros sistemas).
+- **Node.js 22.12.0 ou superior** e **npm**.
+- **Windows 10/11 (x64)** ou uma distribuição **Linux x64** recente.
+- No Linux, o build `.deb` requer `dpkg` e o AppImage pode exigir FUSE para execução (ou `--appimage-extract-and-run`).
 
 ---
 
@@ -171,21 +171,25 @@ npm run icons
 
 ---
 
-## 📦 Como gerar o executável (Windows)
+## 📦 Como gerar os pacotes (Windows e Linux)
 
 ```bash
-npm run pack           # apenas a pasta dist/win-unpacked (rápido, sem instalador)
-npm run dist           # instalador NSIS + versão portátil
-npm run dist:portable  # somente o .exe portátil
+npm run check          # sintaxe e testes automatizados
+npm run pack           # diretório desempacotado da plataforma atual
+npm run dist           # instalador NSIS + portátil para Windows
+npm run dist:portable  # somente o portátil do Windows
+npm run dist:linux     # AppImage + pacote .deb para Linux
 ```
 
 Os artefatos saem em `dist/`:
 
 | Arquivo | Descrição |
 | --- | --- |
-| `Guitar Study Router-<versão>-x64.exe` | Instalador (NSIS, escolhe pasta, cria atalhos) |
-| `Guitar Study Router-<versão>-portable.exe` | Versão portátil (não instala nada) |
-| `win-unpacked/` | App “desempacotado” para inspeção/testes |
+| `Guitar Study Router-<versão>-x64.exe` | Instalador Windows (NSIS, escolhe pasta, cria atalhos) |
+| `Guitar Study Router-<versão>-portable.exe` | Versão portátil para Windows |
+| `Guitar Study Router-<versão>-x86_64.AppImage` | Aplicativo portátil para Linux |
+| `Guitar Study Router-<versão>-amd64.deb` | Pacote para Debian/Ubuntu e derivados |
+| `win-unpacked/` ou `linux-unpacked/` | App desempacotado para inspeção/testes |
 
 > Os executáveis **não são assinados digitalmente**, então o Windows SmartScreen pode avisar
 > na primeira execução ("Mais informações" → "Executar assim mesmo").
@@ -203,10 +207,15 @@ guitar-study-router/
 ├─ icon.png                 # Ícone usado pela janela
 ├─ lib/
 │  ├─ audio-dsp.js          # Transposição de áudio offline (WSOLA)
+│  ├─ audio-worker.js       # Worker que processa o áudio fora da interface
+│  ├─ data-store.js         # Estado versionado: normalização, backup e migração
+│  ├─ track-selector.js     # Nomes e índices das trilhas do AlphaTab
 │  └─ alphatab/             # GERADO pelo postinstall (não versionado)
 │     ├─ alphaTab.min.js
 │     ├─ soundfont/sonivox.sf2
 │     └─ font/Bravura.*
+├─ test/                    # Testes automatizados (`node --test`)
+├─ .github/workflows/       # CI: `npm run check`, audit e empacotamento
 ├─ scripts/
 │  ├─ copy-alphatab.js      # postinstall: copia os assets do alphaTab
 │  └─ make-icons.js         # gera build/icon.ico e icon.png
@@ -220,13 +229,20 @@ guitar-study-router/
 
 | O quê | Onde |
 | --- | --- |
-| Cronograma (blocos, anotações, métricas) | `%APPDATA%\Guitar Study Router\data\schedule.json` |
-| Tema, posição do metrônomo, metas, estado do player de áudio | `localStorage` do app |
+| Estado (cronograma, metas, sessões e caminhos de mídia) | Windows: `%APPDATA%\Guitar Study Router\data\state.json`; Linux: `~/.config/Guitar Study Router/data/state.json` |
+| Backup automático do estado anterior | Ao lado do estado, em `state.json.bak` |
+| Tema, posição do metrônomo e preferências do player de áudio | `localStorage` do app |
 
 - Os arquivos de **tablatura e áudio não são copiados**: o bloco guarda apenas o **caminho**
   do arquivo escolhido.
-- O cronograma pode ser levado para outro computador com **Exportar / Importar** (JSON).
-- As **metas** do Analytics ficam somente no `localStorage` e **não** entram no export.
+- O estado é salvo de forma atômica. Antes de substituir um `state.json` existente, o app cria
+  `state.json.bak`; se o arquivo principal estiver corrompido no próximo início, recupera o backup
+  automaticamente e informa o usuário.
+- Na primeira execução desta versão, `schedule.json` legado é incorporado ao `state.json`. As metas
+  da chave `guitar-study-router:goals` no `localStorage` também são mescladas uma única vez, sem
+  substituir metas já presentes; a chave só é removida depois da gravação bem-sucedida.
+- O cronograma pode ser levado para outro computador com **Exportar / Importar** (JSON). Metas ficam
+  no `state.json`, mas a exportação de cronograma continua contendo apenas a agenda.
 
 ---
 

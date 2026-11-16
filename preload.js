@@ -10,6 +10,15 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
 
   // ── Cronograma ────────────────────────────────────────────────
+  /** Carrega o estado persistido e informa eventual recuperação de backup */
+  loadState: () => ipcRenderer.invoke('state:load'),
+
+  /** Salva cronograma e metas em uma única operação atômica */
+  saveState: (data) => ipcRenderer.invoke('state:save', data),
+
+  /** Migra uma única vez metas do localStorage após persistência confirmada */
+  migrateLegacyGoals: (goals) => ipcRenderer.invoke('state:migrateLegacyGoals', goals),
+
   /** Carrega o cronograma semanal do arquivo JSON local */
   loadSchedule: () => ipcRenderer.invoke('schedule:load'),
 

@@ -83,6 +83,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   let editingBlockId = null;
   let focusState = null;
   let alphaTabApi = null;
+  let persistedGoals = [];
+  const appStatus = document.getElementById('appStatus');
+
+  function showStatus(message, isError = false) {
+    appStatus.textContent = message;
+    appStatus.classList.toggle('error', isError);
+    appStatus.classList.remove('hidden');
+    clearTimeout(showStatus.timer);
+    showStatus.timer = setTimeout(() => appStatus.classList.add('hidden'), isError ? 10000 : 5000);
+  }
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error(event.reason);
+    showStatus(event.reason && event.reason.message ? event.reason.message : 'Ocorreu um erro inesperado.', true);
+  });
 
   // O bloco em execução tem tablatura? `showMediaView` depende disso para não
   // revelar uma área de tablatura vazia.
@@ -112,13 +127,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ─────────────────────────────────────────────────────────────────────────────
   // 11. Persistence & Initialization
   // ─────────────────────────────────────────────────────────────────────────────
+  const LEGACY_GOALS_KEY = 'guitar-study-router:goals';
   try {
-    const loadedSchedule = await window.electronAPI.loadSchedule();
-    if (loadedSchedule) {
-      schedule = { ...schedule, ...loadedSchedule };
+    const loaded = await window.electronAPI.loadState();
+    if (loaded && loaded.state) {
+      schedule = { ...schedule, ...loaded.state.schedule };
+      persistedGoals = loaded.state.goals || [];
+      if (!loaded.state.migrations?.legacyGoalsLocalStorage) {
+        let legacyGoals = null;
+        try {
+          const parsed = JSON.parse(localStorage.getItem(LEGACY_GOALS_KEY) || '[]');
+          if (Array.isArray(parsed)) legacyGoals = parsed;
+          else showStatus('As metas legadas têm formato inválido e foram preservadas para recuperação.', true);
+        } catch (err) {
+          console.warn('Metas legadas inválidas; a chave foi preservada para nova tentativa.', err);
+          showStatus('Não foi possível migrar as metas legadas; os dados originais foram preservados.', true);
+        }
+        if (legacyGoals) {
+          const migration = await window.electronAPI.migrateLegacyGoals(legacyGoals);
+          if (migration?.success && migration.state) {
+            persistedGoals = migration.state.goals || [];
+            try { localStorage.removeItem(LEGACY_GOALS_KEY); } catch { /* state.json já foi salvo */ }
+          }
+        }
+      }
+      if (loaded.recovered) showStatus('Os dados principais estavam corrompidos e foram recuperados do backup.');
     }
   } catch (err) {
-    console.error('Erro ao carregar o cronograma:', err);
+    console.error('Erro ao carregar os dados:', err);
+    showStatus(`Não foi possível carregar seus dados: ${err.message}`, true);
   }
 
   // Detect current real weekday
@@ -197,9 +234,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         notesText.textContent = block.notes;
       }
 
-      if (block.metrics && block.metrics.length > 0) {
-        const lastMetrics = block.metrics.slice(-3);
-        metricsArea.textContent = 'Métricas: ' + lastMetrics.map(m => `${m.date} (${m.bpm} BPM)`).join(', ');
+      if (block.sessions && block.sessions.length > 0) {
+        const lastSessions = block.sessions.slice(-3);
+        metricsArea.textContent = 'Sessões: ' + lastSessions.map((session) => {
+          const bpm = session.bpm ? ` · ${session.bpm} BPM` : '';
+          const minutes = Math.round((Number(session.durationSeconds) || 0) / 60);
+          return `${session.date} (${minutes} min${bpm})`;
+        }).join(', ');
       }
 
       if (block.tabFile) {
@@ -263,13 +304,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function saveSchedule() {
-    await window.electronAPI.saveSchedule(schedule);
+    try {
+      await window.electronAPI.saveState({ schedule, goals: persistedGoals });
+    } catch (err) {
+      showStatus(`Não foi possível salvar: ${err.message}`, true);
+      throw err;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // 5. Block CRUD
   // ─────────────────────────────────────────────────────────────────────────────
   const blockModal = document.getElementById('blockModal');
+  const modalOverlays = [...document.querySelectorAll('.modal-overlay')];
+  let modalReturnFocus = null;
+
+  function closeModal(modal) {
+    modal.classList.add('hidden');
+    if (modalReturnFocus) modalReturnFocus.focus();
+  }
+
+  modalOverlays.forEach((modal) => {
+    new MutationObserver(() => {
+      if (!modal.classList.contains('hidden')) {
+        modalReturnFocus = document.activeElement;
+        const first = modal.querySelector('input, select, textarea, button');
+        if (first) requestAnimationFrame(() => first.focus());
+      }
+    }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    modal.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (modal.id === 'closureModal') document.getElementById('btnClosureSkip').click();
+        else closeModal(modal);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = [...modal.querySelectorAll('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
+  });
   const blockForm = document.getElementById('blockForm');
   const fieldTopic = document.getElementById('fieldTopic');
   const tabFileGroup = document.getElementById('tabFileGroup');
@@ -338,10 +416,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('btnModalCancel').addEventListener('click', () => {
-    blockModal.classList.add('hidden');
+    closeModal(blockModal);
   });
 
   document.getElementById('btnModalSave').addEventListener('click', () => {
+    if (!blockForm.reportValidity()) return;
     const topic = document.getElementById('fieldTopic').value;
     const subtopic = document.getElementById('fieldSubtopic').value.trim();
     const duration = parseInt(document.getElementById('fieldDuration').value);
@@ -374,7 +453,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         duration,
         restTime,
         notes,
-        metrics: [],
+        sessions: [],
         tabFile,
         audioFile,
         order: schedule[currentDay].length
@@ -383,7 +462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     saveSchedule().then(() => {
-      blockModal.classList.add('hidden');
+      closeModal(blockModal);
       renderBlocks();
     });
   });
@@ -402,7 +481,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('btnImportCancel').addEventListener('click', () => {
-    importModal.classList.add('hidden');
+    closeModal(importModal);
   });
 
   document.getElementById('btnImportWeek').addEventListener('click', async () => {
@@ -412,7 +491,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await saveSchedule();
       renderBlocks();
     }
-    importModal.classList.add('hidden');
+    closeModal(importModal);
   });
 
   document.getElementById('btnImportDay').addEventListener('click', async () => {
@@ -422,7 +501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await saveSchedule();
       renderBlocks();
     }
-    importModal.classList.add('hidden');
+    closeModal(importModal);
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -449,7 +528,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   btnTimerPause.addEventListener('click', () => {
     if (!focusState) return;
-    focusState.paused = !focusState.paused;
+    const now = performance.now();
+    if (focusState.paused) {
+      focusState.paused = false;
+      focusState.deadline = now + focusState.remaining * 1000;
+      if (focusState.phase === 'study') focusState.activeStartedAt = now;
+    } else {
+      focusState.remaining = Math.max(0, Math.ceil((focusState.deadline - now) / 1000));
+      if (focusState.phase === 'study' && focusState.activeStartedAt !== null) {
+        focusState.effectiveMs += now - focusState.activeStartedAt;
+        focusState.activeStartedAt = null;
+      }
+      focusState.paused = true;
+    }
     updateTimerPauseUi();
   });
 
@@ -497,10 +588,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.electronAPI.enterFocus();
 
+    const initialSeconds = block.duration * 60;
+    const now = performance.now();
     focusState = {
       block: block,
       phase: 'study',
-      remaining: block.duration * 60,
+      remaining: initialSeconds,
+      deadline: now + initialSeconds * 1000,
+      activeStartedAt: now,
+      effectiveMs: 0,
       paused: false,
       intervalId: null
     };
@@ -597,22 +693,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function focusTick() {
     if (!focusState || focusState.paused) return;
-    
-    focusState.remaining--;
+
+    const now = performance.now();
+    focusState.remaining = Math.max(0, Math.ceil((focusState.deadline - now) / 1000));
     timerDisplay.textContent = formatTime(focusState.remaining);
 
     if (focusState.remaining <= 0) {
       if (focusState.phase === 'study') {
+        if (focusState.activeStartedAt !== null) {
+          focusState.effectiveMs += Math.max(0, now - focusState.activeStartedAt);
+          focusState.activeStartedAt = null;
+        }
         if (focusState.block.restTime > 0) {
           focusState.phase = 'rest';
           focusState.remaining = focusState.block.restTime * 60;
+          focusState.deadline = now + focusState.remaining * 1000;
           timerArea.classList.add('rest-mode');
           timerDisplay.textContent = formatTime(focusState.remaining);
           updateTimerPauseUi();
-          
           stopMetronome();
           if (alphaTabApi) alphaTabApi.pause();
-
         } else {
           endFocusInterval();
           showClosureModal();
@@ -652,16 +752,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!focusState || !focusState.block) return;
     
     const block = focusState.block;
-    const bpm = parseInt(document.getElementById('closureBpm').value);
+    const bpmField = document.getElementById('closureBpm');
+    const bpm = bpmField.value === '' ? null : parseInt(bpmField.value, 10);
     const notes = document.getElementById('closureNotes').value;
 
-    if (!isNaN(bpm)) {
-      if (!block.metrics) block.metrics = [];
-      block.metrics.push({
-        date: new Date().toISOString().slice(0, 10),
-        bpm: bpm
-      });
+    if (bpm !== null && (!Number.isFinite(bpm) || bpm < 20 || bpm > 400)) {
+      bpmField.setCustomValidity('Informe um BPM entre 20 e 400, ou deixe em branco.');
+      bpmField.reportValidity();
+      return;
     }
+    bpmField.setCustomValidity('');
+
+    if (!block.sessions) block.sessions = [];
+    block.sessions.push({
+      date: new Date().toISOString().slice(0, 10),
+      durationSeconds: Math.max(0, Math.round(focusState.effectiveMs / 1000)),
+      bpm
+    });
 
     if (notes.trim()) {
       block.notes = block.notes ? block.notes + '\n' + notes : notes;
@@ -992,8 +1099,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     // A visibilidade da área é de `showMediaView`; aqui só carregamos o arquivo.
     const container = document.getElementById('alphaTabContainer');
 
-    const fileData = await window.electronAPI.readBinary(block.tabFile);
-    if (!fileData) return;
+    let fileData;
+    try {
+      fileData = await window.electronAPI.readBinary(block.tabFile);
+    } catch (err) {
+      showStatus(`Não foi possível abrir a tablatura: ${err.message}`, true);
+      return;
+    }
+    if (!fileData) {
+      showStatus('A tablatura não pôde ser lida. Selecione o arquivo novamente.', true);
+      return;
+    }
     
     const settings = {
       core: {
@@ -1026,6 +1142,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     
     alphaTabApi = new window.alphaTab.AlphaTabApi(container, settings);
+    if (alphaTabApi.error && typeof alphaTabApi.error.on === 'function') {
+      alphaTabApi.error.on((error) => {
+        console.error('alphaTab:', error);
+        showStatus('Não foi possível carregar ou reproduzir esta tablatura.', true);
+      });
+    }
 
     // Nada a silenciar aqui: o alphaTab não tem autoplay (1.3 não expõe a opção),
     // então uma API recém-criada nunca está tocando. Pausá-la só faria o synth
@@ -1038,9 +1160,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // todas as repetições antes de reiniciar o áudio no novo BPM.
     alphaTabApi.isLooping = false;
     alphaTabApi.countInVolume = 1;
-
-    // Carregar arquivo binário
-    alphaTabApi.load(new Uint8Array(fileData));
 
     // ── Elementos da interface do player ──────────────────────────────────────
     const btnPlayPause = document.getElementById('btnAtPlayPause');
@@ -1068,6 +1187,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rampStartElem = document.getElementById('rampStart');
     const rampStepElem = document.getElementById('rampStep');
     const rampTargetElem = document.getElementById('rampTarget');
+    const trackSelect = document.getElementById('atTrackSelect');
+    const trackStatus = document.getElementById('atTrackStatus');
+
+    trackSelect.disabled = true;
+    trackSelect.innerHTML = '<option value="">Carregando trilhas…</option>';
+    trackStatus.textContent = 'Carregando…';
 
     // ── Estado do Player, Loop e Ramping ──────────────────────────────────────
     let originalBpm = null;
@@ -1348,10 +1473,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ── Eventos do AlphaTab ───────────────────────────────────────────────────
+    function setTrackStatus(text, isError = false) {
+      trackStatus.textContent = text;
+      trackStatus.classList.toggle('error', isError);
+    }
+
+    function populateTracks(score) {
+      const helper = globalThis.GuitarStudyTrackSelector;
+      const options = helper ? helper.trackOptions(score) : [];
+      trackSelect.replaceChildren();
+      if (options.length === 0) {
+        trackSelect.append(new Option('Nenhuma trilha disponível', ''));
+        trackSelect.disabled = true;
+        setTrackStatus('Nenhuma trilha disponível');
+        return;
+      }
+      for (const option of options) trackSelect.append(new Option(option.label, String(option.index)));
+      trackSelect.disabled = false;
+      trackSelect.value = String(options[0].index);
+      setTrackStatus(options.length === 1 ? '1 trilha disponível' : `${options.length} trilhas disponíveis`);
+    }
+
     function handleScoreLoaded(score) {
       originalBpm = readOriginalBpm(score);
       updateTempoInfo();
       setSpeed(rampState.currentSpeed);
+      populateTracks(score);
       if (loopMode === 'all') {
         const totalBars = score && score.masterBars ? score.masterBars.length : 0;
         setLoopStatus(totalBars ? `Tab inteira (${totalBars} compassos)` : 'Tab inteira');
@@ -1361,7 +1508,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     alphaTabApi.scoreLoaded.on(handleScoreLoaded);
-    if (alphaTabApi.score) handleScoreLoaded(alphaTabApi.score);
+    trackSelect.addEventListener('change', () => {
+      const index = Number(trackSelect.value);
+      const score = alphaTabApi && alphaTabApi.score;
+      const track = score && Array.isArray(score.tracks)
+        ? score.tracks.find((candidate, position) => (Number.isInteger(candidate.index) ? candidate.index : position) === index)
+        : null;
+      if (!track) {
+        setTrackStatus('Não foi possível selecionar esta trilha', true);
+        return;
+      }
+      try {
+        alphaTabApi.renderTracks([track]);
+        setTrackStatus(`Trilha ativa: ${trackSelect.options[trackSelect.selectedIndex].text}`);
+      } catch (error) {
+        console.error('Falha ao trocar trilha:', error);
+        setTrackStatus('Erro ao carregar a trilha selecionada', true);
+      }
+    });
 
     alphaTabApi.soundFontLoaded.on(() => {
       prepareCountIn();
@@ -1372,6 +1536,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       applyPlaybackRange();
       setSpeed(rampState.currentSpeed);
     });
+
+    // Registra todos os listeners antes do primeiro load para não perder eventos
+    // em arquivos pequenos nem deixar controles em um estado intermediário.
+    try {
+      alphaTabApi.load(new Uint8Array(fileData));
+    } catch (error) {
+      console.error('Falha ao carregar tablatura:', error);
+      trackSelect.replaceChildren(new Option('Erro ao carregar trilhas', ''));
+      trackSelect.disabled = true;
+      setTrackStatus('Erro ao carregar a tablatura', true);
+    }
 
     // Seleção A-B feita arrastando o mouse diretamente na partitura
     alphaTabApi.playbackRangeChanged.on((args) => {
@@ -1577,6 +1752,64 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const AUDIO_MIN_REGION = 0.08;   // trecho mais curto que vale marcar (s)
   const TRANSPOSE_DEBOUNCE = 350;  // ms de espera antes de reprocessar o tom
+  const MAX_DSP_BYTES = 256 * 1024 * 1024;
+  const DSP_BYTES_PER_SAMPLE = Float32Array.BYTES_PER_ELEMENT;
+  const DSP_BUFFER_MULTIPLIER = 6; // entrada, cópias de trabalho e saída do WSOLA/IPC
+  const dspJobs = new Map();
+  let dspWorker = null;
+
+  function createDspWorker() {
+    const worker = new Worker('lib/audio-worker.js');
+    worker.addEventListener('message', (event) => {
+      const message = event.data || {};
+      const job = dspJobs.get(message.id);
+      if (!job) return;
+      if (message.type === 'progress') {
+        job.progress(message.progress);
+      } else if (message.type === 'result') {
+        dspJobs.delete(message.id);
+        job.resolve(message);
+      } else if (message.type === 'error') {
+        dspJobs.delete(message.id);
+        job.reject(new Error(message.message));
+      }
+    });
+    worker.addEventListener('error', () => {
+      for (const job of dspJobs.values()) job.reject(new Error('Falha no processador de áudio.'));
+      dspJobs.clear();
+      if (dspWorker === worker) dspWorker = createDspWorker();
+    });
+    return worker;
+  }
+
+  function cancelDspJobs() {
+    if (dspJobs.size === 0) return;
+    if (dspWorker) dspWorker.terminate();
+    for (const job of dspJobs.values()) job.reject(new Error('Processamento cancelado.'));
+    dspJobs.clear();
+    dspWorker = createDspWorker();
+  }
+
+  dspWorker = createDspWorker();
+
+  function runPitchShiftWorker(buffer, ratio, id) {
+    const channelsCount = Number(buffer.numberOfChannels) || 0;
+    const estimatedBytes = buffer.length * channelsCount * DSP_BYTES_PER_SAMPLE * DSP_BUFFER_MULTIPLIER;
+    if (channelsCount < 1 || channelsCount > 2 || estimatedBytes > MAX_DSP_BYTES) {
+      return Promise.reject(new Error('Áudio grande demais para transposição segura (limite de memória: 256 MB).'));
+    }
+    const channels = [];
+    for (let index = 0; index < channelsCount; index++) {
+      channels.push(buffer.getChannelData(index).slice().buffer);
+    }
+    return new Promise((resolve, reject) => {
+      dspJobs.set(id, {
+        resolve, reject,
+        progress: (value) => { audioLoadInfo.textContent = `Processando transposição… ${value}%`; }
+      });
+      dspWorker.postMessage({ type: 'pitchShift', id, ratio, sampleRate: buffer.sampleRate, length: buffer.length, channels }, channels);
+    });
+  }
 
   const audioState = {
     blockId: null,
@@ -1925,20 +2158,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     audioTransposeInfo.textContent = `${n > 0 ? '+' : ''}${n} semitons`;
   }
 
-  /** Reamostragem linear: lê o sinal `ratio` vezes mais rápido (ratio > 1 = mais agudo). */
-  function resampleLinear(input, ratio) {
-    return window.GuitarStudyDsp.resampleLinear(input, ratio);
-  }
-
-  /**
-   * Transpõe preservando a duração via WSOLA. O algoritmo mora em
-   * lib/audio-dsp.js porque é a parte mais delicada do player e precisa ser
-   * verificável sem passar pela interface.
-   */
-  function pitchShiftBuffer(buffer, ratio) {
-    return window.GuitarStudyDsp.pitchShiftBuffer(buffer, ratio);
-  }
-
   /** Serializa um AudioBuffer como WAV PCM 16 bits para tocar num <audio>. */
   function encodeWav(audioBuffer) {
     const channels = Math.min(2, audioBuffer.numberOfChannels);
@@ -2035,14 +2254,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (token !== st.renderToken) return;
 
     try {
-      const shifted = pitchShiftBuffer(st.buffer, Math.pow(2, semitones / 12));
+      cancelDspJobs();
+      const result = await runPitchShiftWorker(st.buffer, Math.pow(2, semitones / 12), token);
       if (token !== st.renderToken) return;
+      const shifted = getDecodeContext().createBuffer(result.channels.length, result.length, result.sampleRate);
+      result.channels.forEach((channel, index) => shifted.copyToChannel(new Float32Array(channel), index));
       st.transpose = semitones;
       setSourceFromBuffer(shifted);
       saveAudioPrefs();
-    } catch {
+    } catch (error) {
       if (token === st.renderToken) {
-        audioLoadInfo.textContent = 'Falha ao processar a transposição';
+        audioLoadInfo.textContent = error.message || 'Falha ao processar a transposição';
         audioLoadInfo.classList.add('error');
       }
     }
@@ -2175,6 +2397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   /** Zera o player de áudio sem mexer na visibilidade do painel. */
   function resetAudioState() {
     stopAudioTicker();
+    cancelDspJobs();
     audioState.renderToken++;
     clearTimeout(transposeTimer);
 
@@ -2247,26 +2470,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ─────────────────────────────────────────────────────────────────────────────
   // 13. Analytics — métricas do usuário
   //     "Onde estou" e "Evolução técnica" são derivados do que o app já guarda
-  //     (blocos + block.metrics preenchidas no fechamento do treino). "Onde quero
+  //     (blocos + block.sessions preenchidas no fechamento do treino). "Onde quero
   //     chegar" são metas do usuário, guardadas à parte do cronograma.
   // ─────────────────────────────────────────────────────────────────────────────
   const analyticsView = document.getElementById('analyticsView');
-  const GOALS_KEY = 'guitar-study-router:goals';
 
   /** Metas: { id, texto, prazo: 'curto'|'longo', feito, criado }. */
-  let goals = [];
-  try {
-    const salvo = JSON.parse(localStorage.getItem(GOALS_KEY) || '[]');
-    if (Array.isArray(salvo)) goals = salvo;
-  } catch {
-    goals = []; // Sem persistência: as metas valem para a sessão atual.
-  }
+  let goals = persistedGoals;
 
-  function saveGoals() {
+  async function saveGoals(previousGoals) {
+    persistedGoals = goals;
     try {
-      localStorage.setItem(GOALS_KEY, JSON.stringify(goals));
-    } catch {
-      // idem: sem persistência o app segue funcionando
+      await saveSchedule();
+      showStatus('Metas salvas.');
+      return true;
+    } catch (error) {
+      goals = previousGoals;
+      persistedGoals = previousGoals;
+      renderAnalytics();
+      showStatus(`A alteração de metas não foi salva: ${error.message}`, true);
+      return false;
     }
   }
 
@@ -2282,27 +2505,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sessoes = [];
     for (const dia of Object.keys(dayNameMapping)) {
       for (const b of (schedule[dia] || [])) {
-        for (const m of (b.metrics || [])) {
+        for (const m of (b.sessions || [])) {
           sessoes.push({
             data: m.date || '',
             bpm: Number(m.bpm) || 0,
             topic: b.topic,
             subtopic: (b.subtopic || '').trim(),
-            minutos: Number(b.duration) || 0,
+            minutos: (Number(m.durationSeconds) || 0) / 60,
             blockId: b.id
           });
         }
       }
     }
     return sessoes.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
-  }
-
-  /** Nível estimado pelo melhor BPM já registrado. */
-  function nivelPorBpm(bpmMax) {
-    if (!bpmMax) return { nome: '—', classe: '' };
-    if (bpmMax >= 160) return { nome: 'Avançado', classe: 'nivel-avancado' };
-    if (bpmMax >= 100) return { nome: 'Intermediário', classe: 'nivel-intermediario' };
-    return { nome: 'Iniciante', classe: 'nivel-iniciante' };
   }
 
   /** Barras de BPM máximo por dia (até 12 dias). Altura em px para caber no card. */
@@ -2344,11 +2559,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bpmMedio = comBpm.length
       ? Math.round(comBpm.reduce((t, s) => t + s.bpm, 0) / comBpm.length) : 0;
     const metasFeitas = goals.filter((g) => g.feito).length;
-
-    const nivel = nivelPorBpm(bpmMax);
-    const elNivel = document.getElementById('anNivel');
-    elNivel.textContent = nivel.nome;
-    elNivel.className = nivel.classe;
 
     document.getElementById('anHoras').textContent = horas.toFixed(1).replace('.', ',');
     document.getElementById('anSessoes').textContent = String(sessoes.length);
@@ -2407,10 +2617,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     analyticsView.classList.add('hidden');
   });
 
-  document.getElementById('btnAddGoal').addEventListener('click', () => {
+  document.getElementById('btnAddGoal').addEventListener('click', async () => {
     const campo = document.getElementById('anGoalText');
     const texto = campo.value.trim();
     if (!texto) return;
+    const previousGoals = goals.map((goal) => ({ ...goal }));
     goals.push({
       id: crypto.randomUUID(),
       texto,
@@ -2418,9 +2629,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       feito: false,
       criado: new Date().toISOString().slice(0, 10)
     });
-    campo.value = '';
-    saveGoals();
     renderAnalytics();
+    if (await saveGoals(previousGoals)) campo.value = '';
   });
 
   document.getElementById('anGoalText').addEventListener('keydown', (e) => {
@@ -2431,18 +2641,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   /** Concluir/remover metas, delegado nos dois grupos. */
-  function onGoalClick(e) {
+  async function onGoalClick(e) {
     const linha = e.target.closest('.an-goal');
     if (!linha) return;
     const meta = goals.find((g) => g.id === linha.dataset.id);
     if (!meta) return;
+    const previousGoals = goals.map((goal) => ({ ...goal }));
 
     if (e.target.dataset.acao === 'toggle') meta.feito = e.target.checked;
     else if (e.target.dataset.acao === 'remover') goals = goals.filter((g) => g.id !== meta.id);
     else return;
 
-    saveGoals();
     renderAnalytics();
+    await saveGoals(previousGoals);
   }
 
   document.getElementById('anGoalsCurto').addEventListener('click', onGoalClick);

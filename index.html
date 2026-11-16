@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: file:; worker-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Guitar Study Router</title>
   <style>
@@ -125,6 +126,8 @@
     /* Modal overlay */
     .modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 1000; }
     .modal-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 28px; min-width: 420px; max-width: 520px; box-shadow: var(--shadow); }
+    .app-status { position: fixed; right: 18px; bottom: 18px; z-index: 2000; max-width: 440px; padding: 10px 14px; border-radius: 8px; background: var(--bg-secondary); border: 1px solid var(--border); box-shadow: var(--shadow); }
+    .app-status.error { color: var(--warning); font-weight: 600; }
     .modal-content h2 { margin-bottom: 20px; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
@@ -143,6 +146,7 @@
 
     /* Hidden utility */
     .hidden { display: none !important; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
     /* Focus view */
     #focusView { position: fixed; inset: 0; background: var(--focus-bg); color: var(--text-primary); z-index: 900; display: flex; flex-direction: column; }
@@ -318,6 +322,9 @@
     }
     #atControls .hint { color: #5b6480; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
     #atControls .hint.error { color: #b45309; font-weight: 600; }
+    .at-track-card { min-width: min(320px, 100%); }
+    #atTrackSelect { min-width: 220px; max-width: 340px; padding: 7px 10px; border: 1px solid #d5dcec; border-radius: 6px; background: #f5f7fb; color: #16192b; font: inherit; }
+    #atTrackSelect:disabled { opacity: 0.65; cursor: wait; }
 
     /* Player de áudio (técnica e repertório) */
     #audioArea { background: var(--bg-secondary); border-top: 1px solid var(--border); display: flex; flex-direction: column; max-height: 48vh; overflow-y: auto; }
@@ -406,9 +413,6 @@
     .metric-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
     .metric-card h3 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 14px; }
     .metric-card h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); margin: 16px 0 8px; }
-    #anNivel { display: inline-block; padding: 5px 16px; border-radius: 999px; background: var(--bg-tertiary); border: 1px solid var(--border); font-size: 1.3rem; font-weight: 700; }
-    #anNivel.nivel-avancado { background: var(--success); color: #fff; border-color: var(--success); }
-    #anNivel.nivel-intermediario { background: var(--warning); color: #fff; border-color: var(--warning); }
     .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 10px; margin-top: 14px; }
     .metric { background: var(--bg-tertiary); border-radius: 8px; padding: 10px 8px; text-align: center; }
     .metric span { display: block; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -645,6 +649,20 @@
             </div>
           </div>
         </div>
+
+        <!-- 5. Trilha real do score -->
+        <div class="at-card at-track-card">
+          <div class="at-card-header">
+            <span>Trilha</span>
+            <span id="atTrackStatus" class="hint">Aguardando tablatura…</span>
+          </div>
+          <div class="at-card-body">
+            <label for="atTrackSelect" class="sr-only">Trilha da tablatura</label>
+            <select id="atTrackSelect" disabled aria-describedby="atTrackStatus">
+              <option value="">Aguardando tablatura…</option>
+            </select>
+          </div>
+        </div>
       </div>
       <div id="alphaTabContainer"></div>
     </div>
@@ -706,7 +724,6 @@
       <!-- Onde estou -->
       <section class="metric-card">
         <h3>Onde estou</h3>
-        <div id="anNivel">—</div>
         <div class="metric-grid">
           <div class="metric"><span id="anHoras">0,0</span><label>horas de treino</label></div>
           <div class="metric"><span id="anSessoes">0</span><label>sessões registradas</label></div>
@@ -762,7 +779,7 @@
   <!-- MODALS -->
 
   <!-- Block Editor Modal -->
-  <div id="blockModal" class="modal-overlay hidden">
+  <div id="blockModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-content">
       <h2 id="modalTitle">Novo Bloco</h2>
       <form id="blockForm">
@@ -783,11 +800,11 @@
         <div class="form-row">
           <div class="form-group">
             <label for="fieldDuration">Duração (min)</label>
-            <input type="number" id="fieldDuration" min="1" value="15">
+            <input type="number" id="fieldDuration" min="1" max="480" value="15" required>
           </div>
           <div class="form-group">
             <label for="fieldRest">Descanso (min)</label>
-            <input type="number" id="fieldRest" min="0" value="5">
+            <input type="number" id="fieldRest" min="0" max="120" value="5" required>
           </div>
         </div>
         <div class="form-group">
@@ -818,9 +835,9 @@
   </div>
 
   <!-- Import Mode Modal -->
-  <div id="importModal" class="modal-overlay hidden">
+  <div id="importModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="importTitle">
     <div class="modal-content">
-      <h2>Importar Cronograma</h2>
+      <h2 id="importTitle">Importar Cronograma</h2>
       <p style="margin-bottom: 20px; color: var(--text-secondary);">Escolha como deseja importar os dados.</p>
       <div style="display: flex; flex-direction: column; gap: 10px;">
         <button id="btnImportWeek" class="btn-primary">Importar Semana Inteira</button>
@@ -833,16 +850,16 @@
   </div>
 
   <!-- Training Closure Modal -->
-  <div id="closureModal" class="modal-overlay hidden">
+  <div id="closureModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="closureTitle">
     <div class="modal-content">
-      <h2>📊 Fechamento de Treino</h2>
+      <h2 id="closureTitle">📊 Fechamento de Treino</h2>
       <div class="form-group">
         <label for="closureNotes">Anotações do treino:</label>
         <textarea id="closureNotes" rows="4"></textarea>
       </div>
       <div class="form-group">
         <label for="closureBpm">BPM Máximo alcançado:</label>
-        <input type="number" id="closureBpm" min="0">
+        <input type="number" id="closureBpm" min="20" max="400" placeholder="Opcional">
       </div>
       <div class="modal-actions">
         <button id="btnClosureSkip" class="btn-secondary">Pular</button>
@@ -875,8 +892,11 @@
     </div>
   </template>
 
+  <div id="appStatus" class="app-status hidden" role="status" aria-live="assertive"></div>
+
   <!-- Scripts -->
   <script src="lib/alphatab/alphaTab.min.js"></script>
+  <script src="lib/track-selector.js"></script>
   <script src="lib/audio-dsp.js"></script>
   <script src="renderer.js" defer></script>
 </body>
