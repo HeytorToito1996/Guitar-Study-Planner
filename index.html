@@ -183,7 +183,7 @@
     #atControls {
       display: flex;
       flex-wrap: wrap;
-      align-items: stretch;
+      align-items: flex-start;
       gap: 10px;
       padding: 10px 16px;
       background: #eef1f6;
@@ -325,6 +325,29 @@
     .at-track-card { min-width: min(320px, 100%); }
     #atTrackSelect { min-width: 220px; max-width: 340px; padding: 7px 10px; border: 1px solid #d5dcec; border-radius: 6px; background: #f5f7fb; color: #16192b; font: inherit; }
     #atTrackSelect:disabled { opacity: 0.65; cursor: wait; }
+    .at-track-body { align-items: flex-start; flex-direction: column; gap: 8px; }
+    .at-mixer { position: relative; }
+    .at-mixer > summary { display: inline-flex; align-items: center; gap: 6px; width: fit-content; padding: 5px 10px; border: 1px solid #c8d0e2; border-radius: 6px; background: #f5f7fb; color: #5b6480; font-size: 12px; font-weight: 600; cursor: pointer; list-style: none; }
+    .at-mixer > summary::-webkit-details-marker { display: none; }
+    .at-mixer > summary::after { content: '▾'; font-size: 10px; }
+    .at-mixer[open] > summary::after { content: '▴'; }
+    .at-mixer > summary:hover { border-color: #9aa6c0; color: #16192b; }
+    .at-mixer > summary:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+    .at-mixer[open] > summary { border-color: #9aa6c0; color: #16192b; }
+    .at-mixer.active > summary { border-color: #d92d4a; color: #b4233c; }
+    .at-mixer-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; width: 320px; max-width: min(320px, calc(100vw - 32px)); padding: 8px; background: #ffffff; border: 1px solid #d5dcec; border-radius: 10px; box-shadow: 0 12px 30px rgba(22, 25, 43, 0.2); }
+    #atTrackMixer { display: flex; flex-direction: column; gap: 4px; width: 100%; max-height: min(320px, 50vh); overflow-y: auto; }
+    .at-track-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px; padding: 3px 4px; border-radius: 5px; }
+    .at-track-row:hover { background: #f2f5fb; }
+    .at-track-row.inaudible .at-track-name { opacity: 0.5; text-decoration: line-through; }
+    .at-track-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #16192b; }
+    .at-mix-btn { width: 26px; height: 26px; padding: 0; border: 1px solid #c8d0e2; border-radius: 5px; background: #f5f7fb; color: #5b6480; font-size: 11px; font-weight: 700; line-height: 1; cursor: pointer; }
+    .at-mix-btn:hover { border-color: #9aa6c0; color: #16192b; }
+    .at-mix-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+    .at-mix-btn[aria-pressed="true"][data-action="mute"] { background: #d92d4a; border-color: #d92d4a; color: #ffffff; }
+    .at-mix-btn[aria-pressed="true"][data-action="solo"] { background: #c88a00; border-color: #c88a00; color: #ffffff; }
+    .at-mix-clear { background: transparent; border: none; padding: 0; color: #2563eb; font-size: 11px; text-decoration: underline; cursor: pointer; }
+    .at-mix-hint { margin: 6px 0 0; color: #5b6480; font-size: 11px; line-height: 1.35; white-space: normal; }
 
     /* Player de áudio (técnica e repertório) */
     #audioArea { background: var(--bg-secondary); border-top: 1px solid var(--border); display: flex; flex-direction: column; max-height: 48vh; overflow-y: auto; }
@@ -653,14 +676,24 @@
         <!-- 5. Trilha real do score -->
         <div class="at-card at-track-card">
           <div class="at-card-header">
-            <span>Trilha</span>
+            <span>Trilhas</span>
             <span id="atTrackStatus" class="hint">Aguardando tablatura…</span>
           </div>
-          <div class="at-card-body">
-            <label for="atTrackSelect" class="sr-only">Trilha da tablatura</label>
+          <div class="at-card-body at-track-body">
+            <label for="atTrackSelect" class="sr-only">Trilha exibida na partitura</label>
             <select id="atTrackSelect" disabled aria-describedby="atTrackStatus">
               <option value="">Aguardando tablatura…</option>
             </select>
+            <details id="atTrackMixerDetails" class="at-mixer">
+              <summary id="atTrackMixerSummary">Mute / Solo</summary>
+              <div class="at-mixer-panel">
+                <div id="atTrackMixer" role="group" aria-label="Mutar ou solar trilhas da tablatura"></div>
+                <p id="atTrackMixerHint" class="at-mix-hint">
+                  <span id="atTrackMixerLegend">M = mutar · S = solo (apenas trilhas em solo tocam)</span>
+                  <button type="button" id="btnTrackMixerClear" class="at-mix-clear hidden">Limpar</button>
+                </p>
+              </div>
+            </details>
           </div>
         </div>
       </div>
@@ -897,6 +930,7 @@
   <!-- Scripts -->
   <script src="lib/alphatab/alphaTab.min.js"></script>
   <script src="lib/track-selector.js"></script>
+  <script src="lib/track-mixer.js"></script>
   <script src="lib/audio-dsp.js"></script>
   <script src="renderer.js" defer></script>
 </body>

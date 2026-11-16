@@ -16,7 +16,7 @@
     "postinstall": "node scripts/copy-alphatab.js",
     "icons": "electron scripts/make-icons.js",
     "test": "node --test test/*.test.js tests/*.test.js",
-    "check": "node --check main.js && node --check preload.js && node --check renderer.js && node --check lib/data-store.js && node --check lib/audio-worker.js && node --check lib/track-selector.js && npm test",
+    "check": "node --check main.js && node --check preload.js && node --check renderer.js && node --check lib/data-store.js && node --check lib/audio-worker.js && node --check lib/track-selector.js && node --check lib/track-mixer.js && npm test",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win",
     "dist:portable": "electron-builder --win portable",

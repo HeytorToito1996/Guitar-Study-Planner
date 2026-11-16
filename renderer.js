@@ -1195,10 +1195,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rampTargetElem = document.getElementById('rampTarget');
     const trackSelect = document.getElementById('atTrackSelect');
     const trackStatus = document.getElementById('atTrackStatus');
+    const trackMixer = document.getElementById('atTrackMixer');
+    const trackMixerDetails = document.getElementById('atTrackMixerDetails');
+    const trackMixerLegend = document.getElementById('atTrackMixerLegend');
+    const btnTrackMixerClear = document.getElementById('btnTrackMixerClear');
 
     trackSelect.disabled = true;
     trackSelect.innerHTML = '<option value="">Carregando trilhas…</option>';
     trackStatus.textContent = 'Carregando…';
+    if (trackMixer) trackMixer.replaceChildren();
+    trackMixerDetails.open = false;
+    if (btnTrackMixerClear) btnTrackMixerClear.classList.add('hidden');
 
     // ── Estado do Player, Loop e Ramping ──────────────────────────────────────
     let originalBpm = null;
@@ -1207,6 +1214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let loopMode = 'all'; // 'off' | 'all' | 'ab'
     let loopRange = null; // { startTick, endTick }
     let internalRangeUpdate = false;
+    let trackMixState = [];
 
     const rampState = {
       enabled: false,
@@ -1484,20 +1492,133 @@ document.addEventListener('DOMContentLoaded', async () => {
       trackStatus.classList.toggle('error', isError);
     }
 
+    // ── Mixer de trilhas (mute/solo) ──────────────────────────────────────────
+    function mixerHelper() {
+      return globalThis.GuitarStudyTrackMixer || null;
+    }
+
+    function scoreTrackAt(index) {
+      const score = alphaTabApi && alphaTabApi.score;
+      if (!score || !Array.isArray(score.tracks)) return null;
+      return score.tracks.find((candidate, position) =>
+        (Number.isInteger(candidate.index) ? candidate.index : position) === index) || null;
+    }
+
+    function mixerSummary() {
+      const total = trackMixState.length;
+      if (total === 0) return 'Nenhuma trilha disponível';
+      const muted = trackMixState.filter((track) => track.mute).length;
+      const soloed = trackMixState.filter((track) => track.solo).length;
+      const parts = [total === 1 ? '1 trilha' : `${total} trilhas`];
+      if (muted) parts.push(muted === 1 ? '1 mutada' : `${muted} mutadas`);
+      if (soloed) parts.push(soloed === 1 ? '1 em solo' : `${soloed} em solo`);
+      return parts.join(' · ');
+    }
+
+    /** Envia mute/solo de todas as trilhas para o sintetizador do AlphaTab. */
+    function applyTrackMixer() {
+      if (!alphaTabApi || !alphaTabApi.score) return;
+      for (const state of trackMixState) {
+        const track = scoreTrackAt(state.index);
+        if (!track) continue;
+        try {
+          alphaTabApi.changeTrackMute([track], state.mute);
+          alphaTabApi.changeTrackSolo([track], state.solo);
+        } catch (error) {
+          console.error('Falha ao aplicar mute/solo na trilha:', error);
+        }
+      }
+    }
+
+    function makeMixButton(action, state) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'at-mix-btn';
+      button.dataset.action = action;
+      button.textContent = action === 'mute' ? 'M' : 'S';
+      button.setAttribute('aria-pressed', String(Boolean(state[action])));
+      button.setAttribute('aria-label', action === 'mute' ? `Mutar ${state.label}` : `Solo: ${state.label}`);
+      button.title = action === 'mute' ? 'Mutar esta trilha' : 'Ouvir esta trilha em solo';
+      return button;
+    }
+
+    /** Atualiza classes e aria sem recriar as linhas (preserva o foco do teclado). */
+    function updateTrackMixerUi() {
+      const helper = mixerHelper();
+      const anySolo = trackMixState.some((track) => track.solo);
+      for (const row of trackMixer.querySelectorAll('.at-track-row')) {
+        const index = Number(row.dataset.index);
+        const state = trackMixState.find((track) => track.index === index);
+        if (!state) continue;
+        const audible = helper ? helper.isAudible(state, anySolo) : !state.mute;
+        row.classList.toggle('inaudible', !audible);
+        for (const button of row.querySelectorAll('.at-mix-btn')) {
+          button.setAttribute('aria-pressed', String(Boolean(state[button.dataset.action])));
+        }
+      }
+      const hasActive = trackMixState.some((track) => track.mute || track.solo);
+      btnTrackMixerClear.classList.toggle('hidden', !hasActive);
+      trackMixerDetails.classList.toggle('active', hasActive);
+      const shared = helper ? helper.sharedChannels(trackMixState) : [];
+      trackMixerLegend.textContent = shared.length
+        ? 'M = mutar · S = solo · trilhas no mesmo canal MIDI são mutadas juntas'
+        : 'M = mutar · S = solo (apenas trilhas em solo tocam)';
+    }
+
+    function renderTrackMixer() {
+      trackMixer.replaceChildren();
+      for (const state of trackMixState) {
+        const row = document.createElement('div');
+        row.className = 'at-track-row';
+        row.dataset.index = String(state.index);
+
+        const name = document.createElement('span');
+        name.className = 'at-track-name';
+        name.textContent = state.label;
+        name.title = state.label;
+
+        row.append(name, makeMixButton('mute', state), makeMixButton('solo', state));
+        trackMixer.append(row);
+      }
+      updateTrackMixerUi();
+    }
+
+    function toggleTrackMix(index, action) {
+      const helper = mixerHelper();
+      if (!helper) return;
+      trackMixState = helper.toggle(trackMixState, index, action);
+      applyTrackMixer();
+      updateTrackMixerUi();
+      setTrackStatus(mixerSummary());
+    }
+
+    function clearTrackMix() {
+      const helper = mixerHelper();
+      if (!helper) return;
+      trackMixState = helper.reset(trackMixState);
+      applyTrackMixer();
+      updateTrackMixerUi();
+      setTrackStatus(mixerSummary());
+    }
+
     function populateTracks(score) {
       const helper = globalThis.GuitarStudyTrackSelector;
+      const mixer = mixerHelper();
       const options = helper ? helper.trackOptions(score) : [];
+      trackMixState = mixer ? mixer.createState(score, helper ? helper.trackLabel : null) : [];
       trackSelect.replaceChildren();
       if (options.length === 0) {
         trackSelect.append(new Option('Nenhuma trilha disponível', ''));
         trackSelect.disabled = true;
+        renderTrackMixer();
         setTrackStatus('Nenhuma trilha disponível');
         return;
       }
       for (const option of options) trackSelect.append(new Option(option.label, String(option.index)));
       trackSelect.disabled = false;
       trackSelect.value = String(options[0].index);
-      setTrackStatus(options.length === 1 ? '1 trilha disponível' : `${options.length} trilhas disponíveis`);
+      renderTrackMixer();
+      setTrackStatus(mixerSummary());
     }
 
     function handleScoreLoaded(score) {
@@ -1535,12 +1656,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     alphaTabApi.soundFontLoaded.on(() => {
       prepareCountIn();
+      applyTrackMixer();
     });
 
     alphaTabApi.playerReady.on(() => {
       prepareCountIn();
       applyPlaybackRange();
       setSpeed(rampState.currentSpeed);
+      applyTrackMixer();
     });
 
     // Registra todos os listeners antes do primeiro load para não perder eventos
@@ -1625,6 +1748,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnCountIn.addEventListener('click', () => {
       countInEnabled = !countInEnabled;
       prepareCountIn();
+    }, { signal });
+
+    // Mixer de trilhas: delegação mantém os botões recriados por load funcionando.
+    trackMixer.addEventListener('click', (event) => {
+      const button = event.target.closest('.at-mix-btn');
+      if (!button) return;
+      const row = button.closest('.at-track-row');
+      if (!row) return;
+      toggleTrackMix(Number(row.dataset.index), button.dataset.action);
+    }, { signal });
+
+    btnTrackMixerClear.addEventListener('click', () => {
+      clearTrackMix();
+    }, { signal });
+
+    // Fecha o painel do mixer ao clicar fora ou pressionar Esc.
+    document.addEventListener('pointerdown', (event) => {
+      if (!trackMixerDetails.open || trackMixerDetails.contains(event.target)) return;
+      trackMixerDetails.open = false;
+    }, { signal });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !trackMixerDetails.open) return;
+      trackMixerDetails.open = false;
+      trackMixerDetails.querySelector('summary').focus();
     }, { signal });
 
     // Digitar o BPM aplica imediatamente o novo andamento

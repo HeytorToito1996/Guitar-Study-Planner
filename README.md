@@ -99,6 +99,10 @@ opcional e um histórico de métricas (BPM alcançado por dia).
   - **+ %/volta** — quanto sobe por volta.
   - **Alvo %** — teto do ramping.
   - Durante o estudo aparece a leitura viva (**Volta N · 60% (72 BPM)**) ao lado dos campos.
+- **🎚️ Mixer de trilhas** — cada trilha do arquivo tem botões **M** (mutar) e **S** (solo).
+  Mute a trilha que você está estudando para tocar junto com o restante da música, ou deixe
+  só uma trilha em solo para ouvi-la isolada. O seletor de trilha continua escolhendo qual
+  tablatura aparece na tela.
 - **Andamento**: BPM direto, velocidade em % e botão **100%** para voltar ao original.
 - **▶ Play / ⏹ Stop** e leitura de tempo (`0:03 / 0:13`).
 
@@ -210,6 +214,7 @@ guitar-study-router/
 │  ├─ audio-worker.js       # Worker que processa o áudio fora da interface
 │  ├─ data-store.js         # Estado versionado: normalização, backup e migração
 │  ├─ track-selector.js     # Nomes e índices das trilhas do AlphaTab
+│  ├─ track-mixer.js        # Estado de mute/solo por trilha
 │  └─ alphatab/             # GERADO pelo postinstall (não versionado)
 │     ├─ alphaTab.min.js
 │     ├─ soundfont/sonivox.sf2
