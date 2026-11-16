@@ -485,21 +485,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('btnImportWeek').addEventListener('click', async () => {
-    const imported = await window.electronAPI.importJson();
+    let imported;
+    try { imported = await window.electronAPI.importJson(); }
+    catch (error) { showStatus(error.message || 'Cronograma inválido.', true); return; }
     if (imported) {
+      const previous = schedule;
       schedule = imported;
-      await saveSchedule();
-      renderBlocks();
+      try { await saveSchedule(); renderBlocks(); }
+      catch { schedule = previous; }
     }
     closeModal(importModal);
   });
 
   document.getElementById('btnImportDay').addEventListener('click', async () => {
-    const imported = await window.electronAPI.importJson();
+    let imported;
+    try { imported = await window.electronAPI.importJson(); }
+    catch (error) { showStatus(error.message || 'Cronograma inválido.', true); return; }
     if (imported && imported[currentDay]) {
+      const previous = schedule[currentDay];
       schedule[currentDay] = imported[currentDay];
-      await saveSchedule();
-      renderBlocks();
+      try { await saveSchedule(); renderBlocks(); }
+      catch { schedule[currentDay] = previous; }
     }
     closeModal(importModal);
   });

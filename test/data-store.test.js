@@ -28,6 +28,7 @@ test('salvamento é recuperável pelo backup', () => {
   const loaded = store.load();
   assert.equal(loaded.recovered, true);
   assert.equal(loaded.state.schedule.monday[0].id, 'a');
+  assert.equal(fs.readFileSync(`${file}.corrupt`, 'utf8'), '{corrompido');
 });
 
 test('sessão mantém duração efetiva e aceita BPM ausente', () => {
